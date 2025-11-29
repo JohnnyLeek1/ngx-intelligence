@@ -1,0 +1,239 @@
+# ngx-intelligence Configuration File
+# Copy this file to config.yaml and adjust settings as needed
+
+# =============================================================================
+# Processing Configuration
+# =============================================================================
+processing:
+  # Enable automatic document processing
+  auto_process: true
+
+  # Number of documents to process in each batch
+  batch_size: 10
+
+  # Maximum number of retries for failed processing
+  max_retries: 3
+
+  # Delay between retries (in seconds)
+  retry_delay: 60
+
+# =============================================================================
+# Ollama Model Configuration
+# =============================================================================
+models:
+  # Model for document classification
+  classification:
+    name: llama2
+    temperature: 0.3
+    max_tokens: 500
+
+  # Model for document summarization
+  summarization:
+    name: llama2
+    temperature: 0.7
+    max_tokens: 1000
+
+  # Model for field extraction
+  extraction:
+    name: llama2
+    temperature: 0.1
+    max_tokens: 500
+
+  # Model for tag suggestions
+  tagging:
+    name: llama2
+    temperature: 0.5
+    max_tokens: 300
+
+# =============================================================================
+# Document Processing Rules
+# =============================================================================
+rules:
+  # Invoice processing rule
+  - name: "Invoice Processing"
+    enabled: true
+    document_type: "invoice"
+    confidence_threshold: 0.7
+    actions:
+      - extract_fields:
+          fields:
+            - invoice_number
+            - invoice_date
+            - total_amount
+            - vendor_name
+      - suggest_tags:
+          max_tags: 5
+      - classify_document
+
+  # Receipt processing rule
+  - name: "Receipt Processing"
+    enabled: true
+    document_type: "receipt"
+    confidence_threshold: 0.6
+    actions:
+      - extract_fields:
+          fields:
+            - date
+            - merchant
+            - total
+      - suggest_tags:
+          max_tags: 3
+
+  # Contract processing rule
+  - name: "Contract Processing"
+    enabled: true
+    document_type: "contract"
+    confidence_threshold: 0.8
+    actions:
+      - extract_fields:
+          fields:
+            - contract_date
+            - parties
+            - expiration_date
+      - summarize_document:
+          max_length: 500
+      - suggest_tags:
+          max_tags: 5
+
+# =============================================================================
+# Tag Configuration
+# =============================================================================
+tags:
+  # Predefined tag categories
+  categories:
+    - name: "Document Type"
+      tags:
+        - invoice
+        - receipt
+        - contract
+        - letter
+        - form
+
+    - name: "Status"
+      tags:
+        - pending
+        - processed
+        - archived
+        - important
+
+    - name: "Source"
+      tags:
+        - scanned
+        - email
+        - upload
+        - automated
+
+  # Automatic tagging rules
+  auto_tags:
+    - pattern: "invoice"
+      tags: ["invoice", "financial"]
+    - pattern: "receipt"
+      tags: ["receipt", "financial"]
+    - pattern: "contract"
+      tags: ["contract", "legal"]
+
+# =============================================================================
+# Scheduler Configuration
+# =============================================================================
+scheduler:
+  # Enable task scheduler
+  enabled: true
+
+  # Jobs configuration
+  jobs:
+    # Check for new documents
+    - name: "check_new_documents"
+      enabled: true
+      schedule: "*/5 * * * *"  # Every 5 minutes (cron format)
+
+    # Process pending documents
+    - name: "process_documents"
+      enabled: true
+      schedule: "*/10 * * * *"  # Every 10 minutes
+
+    # Cleanup old jobs
+    - name: "cleanup_jobs"
+      enabled: true
+      schedule: "0 2 * * *"  # Daily at 2 AM
+
+    # Database maintenance
+    - name: "database_maintenance"
+      enabled: true
+      schedule: "0 3 * * 0"  # Weekly on Sunday at 3 AM
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+logging:
+  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: INFO
+
+  # Log format (json, text)
+  format: json
+
+  # Include request IDs in logs
+  include_request_id: true
+
+  # Log file rotation
+  rotation:
+    max_size_mb: 100
+    max_files: 10
+
+# =============================================================================
+# Performance Settings
+# =============================================================================
+performance:
+  # Maximum concurrent processing jobs
+  max_concurrent_jobs: 3
+
+  # Request timeout (in seconds)
+  request_timeout: 120
+
+  # Database connection pool size
+  db_pool_size: 10
+
+  # Cache settings
+  cache:
+    enabled: true
+    ttl_seconds: 3600
+    max_size: 1000
+
+# =============================================================================
+# Integration Settings
+# =============================================================================
+integrations:
+  paperless:
+    # Sync interval (in seconds)
+    sync_interval: 300
+
+    # Fields to sync
+    sync_fields:
+      - title
+      - content
+      - tags
+      - correspondent
+      - document_type
+
+    # Webhook configuration
+    webhooks:
+      enabled: false
+      url: ""
+      events:
+        - document_added
+        - document_updated
+
+# =============================================================================
+# Feature Flags
+# =============================================================================
+features:
+  # Enable experimental features
+  experimental: false
+
+  # Enable metrics collection
+  metrics: true
+
+  # Enable API rate limiting
+  rate_limiting: true
+
+  # Enable document preview
+  document_preview: true

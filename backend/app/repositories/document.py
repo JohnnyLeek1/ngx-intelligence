@@ -1,0 +1,200 @@
+"""
+Document repository for processed document operations.
+"""
+
+from datetime import datetime, timedelta
+from typing import List, Optional
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database.models import ProcessedDocument, ProcessingStatus
+from app.repositories.base import SQLAlchemyRepository
+
+
+class DocumentRepository(SQLAlchemyRepository[ProcessedDocument]):
+    """Repository for ProcessedDocument model operations."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        super().__init__(ProcessedDocument, session)
+
+    async def get_by_paperless_id(
+        self, paperless_id: int, user_id: UUID
+    ) -> Optional[ProcessedDocument]:
+        """
+        Get document by Paperless document ID and user.
+
+        Args:
+            paperless_id: Paperless document ID
+            user_id: User UUID
+
+        Returns:
+            ProcessedDocument if found, None otherwise
+        """
+        result = await self.session.execute(
+            select(ProcessedDocument).where(
+                ProcessedDocument.paperless_document_id == paperless_id,
+                ProcessedDocument.user_id == user_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_user_documents(
+        self,
+        user_id: UUID,
+        status: Optional[ProcessingStatus] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[ProcessedDocument]:
+        """
+        Get documents for a specific user.
+
+        Args:
+            user_id: User UUID
+            status: Optional status filter
+            limit: Maximum results
+            offset: Results offset
+
+        Returns:
+            List of documents
+        """
+        filters = {"user_id": user_id}
+        if status:
+            filters["status"] = status
+
+        return await self.list(
+            filters=filters,
+            limit=limit,
+            offset=offset,
+            order_by="-processed_at",
+        )
+
+    async def get_recent_documents(
+        self, user_id: UUID, days: int = 7
+    ) -> List[ProcessedDocument]:
+        """
+        Get documents processed in the last N days.
+
+        Args:
+            user_id: User UUID
+            days: Number of days to look back
+
+        Returns:
+            List of recent documents
+        """
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+
+        result = await self.session.execute(
+            select(ProcessedDocument)
+            .where(
+                ProcessedDocument.user_id == user_id,
+                ProcessedDocument.processed_at >= cutoff_date,
+            )
+            .order_by(ProcessedDocument.processed_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def get_failed_documents(self, user_id: UUID) -> List[ProcessedDocument]:
+        """
+        Get all failed documents for a user.
+
+        Args:
+            user_id: User UUID
+
+        Returns:
+            List of failed documents
+        """
+        return await self.list(
+            filters={"user_id": user_id, "status": ProcessingStatus.FAILED},
+            order_by="-processed_at",
+        )
+
+    async def get_pending_approval(self, user_id: UUID) -> List[ProcessedDocument]:
+        """
+        Get documents pending approval.
+
+        Args:
+            user_id: User UUID
+
+        Returns:
+            List of documents pending approval
+        """
+        return await self.list(
+            filters={"user_id": user_id, "status": ProcessingStatus.PENDING_APPROVAL},
+            order_by="-processed_at",
+        )
+
+    async def mark_as_processed(
+        self,
+        paperless_id: int,
+        user_id: UUID,
+        status: ProcessingStatus,
+        suggested_data: dict,
+        confidence_score: float,
+        processing_time_ms: int,
+    ) -> ProcessedDocument:
+        """
+        Mark a document as processed.
+
+        Args:
+            paperless_id: Paperless document ID
+            user_id: User UUID
+            status: Processing status
+            suggested_data: AI-suggested metadata
+            confidence_score: Overall confidence score
+            processing_time_ms: Processing time in milliseconds
+
+        Returns:
+            Created/updated ProcessedDocument
+        """
+        # Check if already exists
+        existing = await self.get_by_paperless_id(paperless_id, user_id)
+
+        if existing:
+            existing.status = status
+            existing.suggested_data = suggested_data
+            existing.confidence_score = confidence_score
+            existing.processing_time_ms = processing_time_ms
+            existing.processed_at = datetime.utcnow()
+            existing.reprocess_count += 1
+            return await self.update(existing)
+        else:
+            document = ProcessedDocument(
+                user_id=user_id,
+                paperless_document_id=paperless_id,
+                status=status,
+                suggested_data=suggested_data,
+                confidence_score=confidence_score,
+                processing_time_ms=processing_time_ms,
+            )
+            return await self.create(document)
+
+    async def get_processing_stats(self, user_id: UUID) -> dict:
+        """
+        Get processing statistics for a user.
+
+        Args:
+            user_id: User UUID
+
+        Returns:
+            Dictionary with statistics
+        """
+        total = await self.count({"user_id": user_id})
+        success = await self.count(
+            {"user_id": user_id, "status": ProcessingStatus.SUCCESS}
+        )
+        failed = await self.count(
+            {"user_id": user_id, "status": ProcessingStatus.FAILED}
+        )
+        pending = await self.count(
+            {"user_id": user_id, "status": ProcessingStatus.PENDING_APPROVAL}
+        )
+
+        return {
+            "total": total,
+            "success": success,
+            "failed": failed,
+            "pending_approval": pending,
+            "success_rate": (success / total * 100) if total > 0 else 0,
+        }

@@ -1,0 +1,95 @@
+[run]
+# Coverage configuration for ngx-intelligence backend
+
+# Source packages to measure
+source = app
+
+# Omit these files/directories from coverage
+omit =
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */venv/*
+    */env/*
+    */.venv/*
+    */migrations/*
+    */alembic/*
+    */config/*
+    app/__init__.py
+    app/main.py
+
+# Enable branch coverage
+branch = True
+
+# Measure concurrency
+concurrency = thread
+
+[report]
+# Reporting options
+
+# Precision for coverage percentage
+precision = 2
+
+# Show lines that weren't executed
+show_missing = True
+
+# Skip files with 100% coverage in report
+skip_covered = False
+
+# Skip empty files
+skip_empty = True
+
+# Fail if coverage is below this percentage
+fail_under = 80
+
+# Ignore errors for source files that can't be found
+ignore_errors = True
+
+# Sort by which metric
+sort = Cover
+
+# Exclude lines from coverage
+exclude_lines =
+    # Have to re-enable the standard pragma
+    pragma: no cover
+    
+    # Don't complain about missing debug-only code
+    def __repr__
+    def __str__
+    
+    # Don't complain if tests don't hit defensive assertion code
+    raise AssertionError
+    raise NotImplementedError
+    
+    # Don't complain if non-runnable code isn't run
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    if typing.TYPE_CHECKING:
+    
+    # Don't complain about abstract methods
+    @abstractmethod
+    @abc.abstractmethod
+    
+    # Don't complain about protocol methods
+    @typing.runtime_checkable
+    
+    # Don't complain about ellipsis in protocols/stubs
+    \.\.\.
+    
+    # Don't complain about pass statements
+    pass
+
+[html]
+# HTML report configuration
+directory = htmlcov
+title = NGX Intelligence Backend Coverage Report
+
+[xml]
+# XML report configuration (for CI/CD)
+output = coverage.xml
+
+[json]
+# JSON report configuration
+output = coverage.json
+pretty_print = True
+show_contexts = True

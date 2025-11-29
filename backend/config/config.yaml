@@ -1,0 +1,132 @@
+app:
+  name: "ngx-intelligence"
+  debug: false
+  log_level: "INFO"
+  secret_key: "${SECRET_KEY}"  # Must be set via environment variable
+  allowed_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+
+database:
+  provider: "sqlite"  # or "postgresql"
+  host: "localhost"
+  port: 5432
+  name: "ngx_intelligence.db"
+  user: "cortex"
+  password: "${DB_PASSWORD}"
+  echo: false
+
+ai:
+  provider: "ollama"
+  ollama:
+    base_url: "${OLLAMA_URL:-http://localhost:11434}"
+    model: "llama3.2"
+    temperature: 0.7
+    timeout: 120
+    max_retries: 3
+
+prompts:
+  system: |
+    You are an AI assistant specialized in document classification and metadata extraction
+    for document management systems. You analyze documents and provide structured metadata
+    including document type, correspondent, relevant tags, dates, and descriptive titles.
+
+    Always return valid JSON responses with the requested fields and confidence scores.
+    Be accurate, concise, and consistent in your classifications.
+
+  classification: |
+    Analyze this document and determine its type from the available options.
+    Consider the content, structure, and purpose of the document.
+
+    Return JSON: {"document_type": "type_name", "confidence": 0.0-1.0}
+
+  tagging: |
+    Suggest relevant tags for this document based on its content, subject matter,
+    and characteristics. Use existing tags when appropriate.
+
+    Return JSON: {"tags": ["tag1", "tag2"], "confidences": [0.8, 0.9]}
+
+  correspondent: |
+    Identify the correspondent (sender or recipient) for this document.
+    Look for company names, organizations, or individuals in the header or signature.
+
+    Return JSON: {"correspondent": "name", "confidence": 0.0-1.0}
+
+  date_extraction: |
+    Extract the most relevant date from this document. Prioritize:
+    1. Invoice/Bill date
+    2. Letter/Document date
+    3. Event date
+    Do not use the creation or scan date unless no other date is found.
+
+    Return JSON: {"document_date": "YYYY-MM-DD", "confidence": 0.0-1.0}
+
+  title_generation: |
+    Generate a concise, descriptive title for this document (maximum 100 characters).
+    The title should capture the essence of the document without redundant information.
+    Make it filename-friendly.
+
+    Return JSON: {"title": "descriptive title", "confidence": 0.0-1.0}
+
+processing:
+  mode: "realtime"  # "realtime", "batch", or "manual"
+  polling_interval: 30  # seconds
+  batch_schedule: "0 2 * * *"  # cron format: daily at 2 AM
+  batch_rules:
+    document_threshold: 100
+    time_threshold: 3600  # seconds
+    rule_type: "either"  # "both" or "either"
+  concurrent_workers: 1
+  retry_attempts: 3
+  retry_backoff: 60  # seconds
+
+approval_workflow:
+  enabled: false
+  pending_tag: "approval-pending"
+
+auto_creation:
+  document_types: false
+  tags: false
+  correspondents: true
+  require_admin_approval: true
+
+tagging:
+  processing_tag:
+    enabled: true
+    name: "ai-processed"
+  rules:
+    min_tags: 0
+    max_tags: 10
+    confidence_threshold: 0.7
+    prefix: ""  # e.g., "auto-" to prefix all auto-generated tags
+    excluded_tags:
+      - "important"
+      - "archived"
+
+naming:
+  default_template: "{date}_{correspondent}_{type}_{title}"
+  date_format: "YYYY-MM-DD"
+  max_title_length: 100
+  clean_special_chars: true
+
+learning:
+  enabled: true
+  global_learning: true
+  per_user: true
+  pattern_analysis: false
+  example_library_size: 100
+
+notifications:
+  webhook:
+    enabled: false
+    url: ""
+    events:
+      - "error"
+      - "processing_complete"
+    secret: "${WEBHOOK_SECRET}"
+    timeout: 30
+
+jwt:
+  algorithm: "HS256"
+  access_token_expire_minutes: 15
+  refresh_token_expire_days: 7
