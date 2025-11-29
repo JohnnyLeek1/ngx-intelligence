@@ -174,9 +174,10 @@ test.describe('Protected Routes', () => {
   })
 
   test('allows access to protected routes when authenticated', async ({ page }) => {
-    // Set up auth token in localStorage
+    // Set up auth token in localStorage (using correct key)
     await page.addInitScript(() => {
-      localStorage.setItem('access_token', 'mock_token')
+      localStorage.setItem('auth_token', JSON.stringify('mock_token'))
+      localStorage.setItem('refresh_token', JSON.stringify('mock_refresh_token'))
     })
 
     // Mock the current user endpoint
@@ -202,5 +203,104 @@ test.describe('Protected Routes', () => {
 
     // Should stay on dashboard
     await expect(page).toHaveURL('/')
+  })
+
+  test('persists session after page refresh', async ({ page }) => {
+    // First, log in
+    await page.goto('/login')
+
+    await page.route('**/api/v1/auth/login', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: 'mock_access_token',
+          refresh_token: 'mock_refresh_token',
+          token_type: 'Bearer',
+        }),
+      })
+    })
+
+    await page.route('**/api/v1/auth/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'user1',
+          username: 'testuser',
+          email: 'test@example.com',
+          role: 'user',
+          paperless_url: 'http://paperless.local',
+          paperless_username: 'paperlessuser',
+          created_at: '2025-01-01T00:00:00Z',
+          updated_at: '2025-01-01T00:00:00Z',
+          is_active: true,
+        }),
+      })
+    })
+
+    // Mock documents endpoint to prevent errors on dashboard
+    await page.route('**/api/v1/documents**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], total: 0, page: 1, size: 10, pages: 0 }),
+      })
+    })
+
+    // Mock queue endpoint
+    await page.route('**/api/v1/queue**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], total: 0 }),
+      })
+    })
+
+    await page.fill('input[name="username"]', 'testuser')
+    await page.fill('input[name="password"]', 'password123')
+    await page.click('button[type="submit"]')
+
+    // Wait for navigation to dashboard
+    await expect(page).toHaveURL('/')
+
+    // Refresh the page
+    await page.reload()
+
+    // Should still be on dashboard (not redirected to login)
+    await expect(page).toHaveURL('/')
+    await expect(page.getByText('Dashboard')).toBeVisible()
+
+    // Verify auth token is still in localStorage
+    const authToken = await page.evaluate(() => localStorage.getItem('auth_token'))
+    expect(authToken).toBeTruthy()
+  })
+
+  test('clears session and redirects to login when token is invalid', async ({ page }) => {
+    // Set up invalid auth token
+    await page.addInitScript(() => {
+      localStorage.setItem('auth_token', JSON.stringify('invalid_token'))
+      localStorage.setItem('refresh_token', JSON.stringify('invalid_refresh'))
+    })
+
+    // Mock unauthorized response
+    await page.route('**/api/v1/auth/me', async (route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          detail: 'Invalid authentication credentials',
+        }),
+      })
+    })
+
+    await page.goto('/')
+
+    // Should redirect to login and clear tokens
+    await expect(page).toHaveURL('/login')
+
+    // Tokens should be cleared from localStorage
+    const authToken = await page.evaluate(() => localStorage.getItem('auth_token'))
+    expect(authToken).toBeNull()
   })
 })

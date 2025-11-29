@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAtom, useSetAtom } from 'jotai';
 import { authApi } from '@/api/auth';
-import { setAuthTokensAtom, clearAuthAtom, currentUserAtom } from '@/store/auth';
+import { setAuthTokensAtom, clearAuthAtom, currentUserAtom, authTokenAtom } from '@/store/auth';
 import type { LoginRequest, UserCreate, UserPasswordChange } from '@/types';
 
 export function useLogin() {
@@ -26,6 +26,10 @@ export function useRegister() {
 export function useCurrentUser() {
   const [, setCurrentUser] = useAtom(currentUserAtom);
 
+  // Use the Jotai atom to check authentication status
+  const [token] = useAtom(authTokenAtom);
+  const isAuthenticated = token !== null && token !== '';
+
   return useQuery({
     queryKey: ['currentUser'],
     queryFn: async () => {
@@ -33,6 +37,7 @@ export function useCurrentUser() {
       setCurrentUser(user);
       return user;
     },
+    enabled: isAuthenticated, // Only run when we have a valid token
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: false,
   });

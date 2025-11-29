@@ -177,7 +177,16 @@ describe('useAuth hooks', () => {
   })
 
   describe('useCurrentUser', () => {
-    it('fetches current user successfully', async () => {
+    beforeEach(() => {
+      // Clear localStorage before each test
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('refresh_token')
+    })
+
+    it('fetches current user successfully when token exists', async () => {
+      // Set up auth token in localStorage
+      localStorage.setItem('auth_token', JSON.stringify('valid_token'))
+
       const mockUser = {
         id: 'user1',
         username: 'testuser',
@@ -204,7 +213,36 @@ describe('useAuth hooks', () => {
       expect(authApi.getCurrentUser).toHaveBeenCalled()
     })
 
+    it('does not fetch when no token exists', async () => {
+      // No token in localStorage
+
+      const { result } = renderHook(() => useCurrentUser(), {
+        wrapper: createWrapper(),
+      })
+
+      // Query should be disabled, so it stays in idle state
+      expect(result.current.status).toBe('pending')
+      expect(result.current.fetchStatus).toBe('idle')
+      expect(authApi.getCurrentUser).not.toHaveBeenCalled()
+    })
+
+    it('does not fetch when token is null string', async () => {
+      localStorage.setItem('auth_token', 'null')
+
+      const { result } = renderHook(() => useCurrentUser(), {
+        wrapper: createWrapper(),
+      })
+
+      // Query should be disabled
+      expect(result.current.status).toBe('pending')
+      expect(result.current.fetchStatus).toBe('idle')
+      expect(authApi.getCurrentUser).not.toHaveBeenCalled()
+    })
+
     it('handles fetch errors without retry', async () => {
+      // Set up auth token in localStorage
+      localStorage.setItem('auth_token', JSON.stringify('invalid_token'))
+
       const error = new Error('Unauthorized')
       vi.mocked(authApi.getCurrentUser).mockRejectedValue(error)
 
