@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Search, RefreshCw, Eye } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatProcessingTime } from '@/lib/utils';
 import type { ProcessingStatus, DocumentFilterRequest, ProcessedDocument } from '@/types';
 
 function StatusBadge({ status }: { status: ProcessingStatus }) {
@@ -160,9 +161,7 @@ export default function HistoryPage() {
                           : '-'}
                       </TableCell>
                       <TableCell>
-                        {doc.processing_time_ms
-                          ? `${doc.processing_time_ms}ms`
-                          : '-'}
+                        {formatProcessingTime(doc.processing_time_ms)}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -242,7 +241,7 @@ export default function HistoryPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Processing Time</p>
-                  <p className="mt-1">{selectedDoc.processing_time_ms ? `${selectedDoc.processing_time_ms}ms` : 'N/A'}</p>
+                  <p className="mt-1">{formatProcessingTime(selectedDoc.processing_time_ms)}</p>
                 </div>
               </div>
 

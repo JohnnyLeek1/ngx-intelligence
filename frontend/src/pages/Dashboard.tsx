@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileText, CheckCircle, XCircle, Clock, TrendingUp, PlayCircle, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { formatProcessingTime } from '@/lib/utils';
 import type { ProcessingStatus } from '@/types';
 
 function StatCard({
@@ -121,10 +122,10 @@ export default function Dashboard() {
         />
         <StatCard
           title="Success Rate"
-          value={`${Math.round((stats?.success_rate || 0) * 100)}%`}
+          value={`${Math.round(stats?.success_rate || 0)}%`}
           description="Successfully processed"
           icon={CheckCircle}
-          trend={stats && stats.success_rate > 0.9 ? "Excellent performance" : undefined}
+          trend={stats && stats.success_rate > 90 ? "Excellent performance" : undefined}
         />
         <StatCard
           title="Failed"
@@ -235,7 +236,7 @@ export default function Dashboard() {
                   </div>
                   {doc.processing_time_ms && (
                     <div className="text-xs text-muted-foreground">
-                      {doc.processing_time_ms}ms
+                      {formatProcessingTime(doc.processing_time_ms)}
                     </div>
                   )}
                 </div>
