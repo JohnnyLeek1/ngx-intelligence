@@ -1,0 +1,39 @@
+# Docker Compose override for development with hot-reloading
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  # Backend service - development mode with hot-reload
+  backend:
+    volumes:
+      # Mount source code for hot reload
+      - ./backend/app:/app/app:ro
+    ports:
+      # Expose backend directly for debugging (host:container)
+      - "8001:8000"
+    environment:
+      - RELOAD=true
+
+  # Frontend service - development mode with hot-reload
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      # Mount source code for hot-reload (excluding node_modules)
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+      - ./frontend/index.html:/app/index.html:ro
+      - ./frontend/vite.config.ts:/app/vite.config.ts:ro
+      - ./frontend/tsconfig.json:/app/tsconfig.json:ro
+      - ./frontend/tsconfig.node.json:/app/tsconfig.node.json:ro
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js:ro
+      - ./frontend/postcss.config.js:/app/postcss.config.js:ro
+      # Persist node_modules in anonymous volume (don't override with host)
+      - /app/node_modules
+    ports:
+      # Map dev server port (host:container)
+      - "5173:3000"
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true

@@ -283,6 +283,36 @@ npm run test:e2e
 
 ### Local Development
 
+#### Option 1: Docker Development (Recommended)
+
+For the best development experience with hot-reloading in Docker:
+
+```bash
+# Start with development configuration
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+# Or rebuild and start
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+**Features**:
+- ✅ Hot-reload for frontend (instant browser updates)
+- ✅ Hot-reload for backend (automatic server restart)
+- ✅ No need to rebuild containers for code changes
+- ✅ Consistent environment with production
+
+**Access points**:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8001
+- API Docs: http://localhost:8001/docs
+
+**What's mounted**:
+- `frontend/src/` → Live updates in browser
+- `backend/app/` → Auto-restart on save
+- Configuration files → Instant reload
+
+#### Option 2: Native Development
+
 **Backend**:
 ```bash
 cd backend

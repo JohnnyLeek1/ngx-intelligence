@@ -223,7 +223,7 @@ export default function Dashboard() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium truncate">
-                        Document #{doc.paperless_document_id}
+                        {doc.suggested_data?.title || `Document #${doc.paperless_document_id}`}
                       </p>
                       <StatusBadge status={doc.status} />
                     </div>
