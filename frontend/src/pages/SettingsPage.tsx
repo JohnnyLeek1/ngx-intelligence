@@ -10,11 +10,11 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Save, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
   const currentUser = useAtomValue(currentUserAtom);
@@ -36,12 +36,12 @@ export default function SettingsPage() {
     model: '',
     temperature: 0.1,
     system_prompt: '',
+    ollama_url: '',
   });
 
   // Processing settings state
   const [processingSettings, setProcessingSettings] = useState({
     mode: 'realtime',
-    auto_process: true,
     polling_interval: 60,
     max_workers: 3,
   });
@@ -53,6 +53,7 @@ export default function SettingsPage() {
         model: config.ai.model || 'llama3.2:latest',
         temperature: config.ai.temperature || 0.1,
         system_prompt: config.ai.system_prompt || '',
+        ollama_url: config.ai.ollama_url || '',
       });
     }
   }, [config?.ai]);
@@ -61,7 +62,6 @@ export default function SettingsPage() {
     if (config?.processing) {
       setProcessingSettings({
         mode: config.processing.mode || 'realtime',
-        auto_process: config.processing.auto_process !== false,
         polling_interval: config.processing.polling_interval || 60,
         max_workers: config.processing.max_workers || 3,
       });
@@ -267,13 +267,27 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 {saveMessage && (
-                  <Alert variant={saveMessage.type === 'error' ? 'destructive' : 'default'}>
+                  <Alert
+                    variant={saveMessage.type === 'error' ? 'destructive' : 'default'}
+                    className={cn(
+                      "animate-in fade-in slide-in-from-top-2 duration-300",
+                      saveMessage.type === 'success' &&
+                      'border-green-500 bg-green-50 dark:bg-green-950/50 text-green-900 dark:text-green-50'
+                    )}
+                  >
                     {saveMessage.type === 'success' ? (
-                      <CheckCircle2 className="h-4 w-4" />
+                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                     ) : (
                       <AlertCircle className="h-4 w-4" />
                     )}
-                    <AlertDescription>{saveMessage.text}</AlertDescription>
+                    <AlertDescription
+                      className={cn(
+                        "!translate-y-0",
+                        saveMessage.type === 'success' && 'text-green-800 dark:text-green-200'
+                      )}
+                    >
+                      {saveMessage.text}
+                    </AlertDescription>
                   </Alert>
                 )}
                 <div className="space-y-2">
@@ -315,6 +329,22 @@ export default function SettingsPage() {
                       <span>Currently using: {modelsData.current_model}</span>
                     </div>
                   )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="ollama_url">Ollama API URL</Label>
+                  <Input
+                    id="ollama_url"
+                    type="url"
+                    placeholder="http://localhost:11434"
+                    value={aiSettings.ollama_url || ''}
+                    onChange={(e) =>
+                      setAiSettings((prev) => ({ ...prev, ollama_url: e.target.value }))
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    URL of your Ollama API server. Default: http://localhost:11434
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -384,13 +414,27 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 {saveMessage && (
-                  <Alert variant={saveMessage.type === 'error' ? 'destructive' : 'default'}>
+                  <Alert
+                    variant={saveMessage.type === 'error' ? 'destructive' : 'default'}
+                    className={cn(
+                      "animate-in fade-in slide-in-from-top-2 duration-300",
+                      saveMessage.type === 'success' &&
+                      'border-green-500 bg-green-50 dark:bg-green-950/50 text-green-900 dark:text-green-50'
+                    )}
+                  >
                     {saveMessage.type === 'success' ? (
-                      <CheckCircle2 className="h-4 w-4" />
+                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                     ) : (
                       <AlertCircle className="h-4 w-4" />
                     )}
-                    <AlertDescription>{saveMessage.text}</AlertDescription>
+                    <AlertDescription
+                      className={cn(
+                        "!translate-y-0",
+                        saveMessage.type === 'success' && 'text-green-800 dark:text-green-200'
+                      )}
+                    >
+                      {saveMessage.text}
+                    </AlertDescription>
                   </Alert>
                 )}
                 <div className="space-y-2">
@@ -431,65 +475,62 @@ export default function SettingsPage() {
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {processingSettings.mode === 'realtime' && 'Documents will be processed automatically as they arrive with continuous polling'}
+                    {processingSettings.mode === 'batch' && 'Documents will be processed in batches at scheduled intervals'}
+                    {processingSettings.mode === 'manual' && 'Documents will only be processed when you manually trigger processing'}
+                  </p>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="auto_process">Auto-process New Documents</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Automatically process documents when added to Paperless
-                      </p>
-                    </div>
-                    <Switch
-                      id="auto_process"
-                      checked={processingSettings.auto_process}
-                      onCheckedChange={(checked) =>
-                        setProcessingSettings((prev) => ({ ...prev, auto_process: checked }))
+                {/* Only show polling interval for realtime and batch modes */}
+                {(processingSettings.mode === 'realtime' || processingSettings.mode === 'batch') && (
+                  <div className="space-y-2">
+                    <Label htmlFor="polling_interval">Polling Interval (seconds)</Label>
+                    <Input
+                      id="polling_interval"
+                      type="number"
+                      min="10"
+                      max="3600"
+                      value={processingSettings.polling_interval}
+                      onChange={(e) =>
+                        setProcessingSettings((prev) => ({
+                          ...prev,
+                          polling_interval: parseInt(e.target.value) || 60,
+                        }))
                       }
                     />
+                    <p className="text-xs text-muted-foreground">
+                      {processingSettings.mode === 'realtime'
+                        ? 'How often to check for new documents (10-3600 seconds)'
+                        : 'How often to run batch processing (10-3600 seconds)'}
+                    </p>
                   </div>
-                </div>
+                )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="polling_interval">Polling Interval (seconds)</Label>
-                  <Input
-                    id="polling_interval"
-                    type="number"
-                    min="10"
-                    max="3600"
-                    value={processingSettings.polling_interval}
-                    onChange={(e) =>
-                      setProcessingSettings((prev) => ({
-                        ...prev,
-                        polling_interval: parseInt(e.target.value) || 60,
-                      }))
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    How often to check for new documents (10-3600 seconds)
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="max_workers">Concurrent Workers</Label>
-                  <Input
-                    id="max_workers"
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={processingSettings.max_workers}
-                    onChange={(e) =>
-                      setProcessingSettings((prev) => ({
-                        ...prev,
-                        max_workers: parseInt(e.target.value) || 3,
-                      }))
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Maximum number of documents to process simultaneously (1-10)
-                  </p>
-                </div>
+                {/* Only show concurrent workers for realtime and batch modes */}
+                {(processingSettings.mode === 'realtime' || processingSettings.mode === 'batch') && (
+                  <div className="space-y-2">
+                    <Label htmlFor="max_workers">Concurrent Workers</Label>
+                    <Input
+                      id="max_workers"
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={processingSettings.max_workers}
+                      onChange={(e) =>
+                        setProcessingSettings((prev) => ({
+                          ...prev,
+                          max_workers: parseInt(e.target.value) || 3,
+                        }))
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {processingSettings.mode === 'realtime'
+                        ? 'Maximum number of documents to process simultaneously (1-10)'
+                        : 'Number of documents to process in each batch (1-10)'}
+                    </p>
+                  </div>
+                )}
 
                 <Button
                   onClick={handleSaveProcessingSettings}

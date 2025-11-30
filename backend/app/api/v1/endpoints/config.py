@@ -32,8 +32,7 @@ class AIModelInfo(BaseModel):
     """AI model information."""
     name: str
     size: str | None = None
-    parameter_count: str | None = None
-    quantization: str | None = None
+    modified_at: str | None = None
     is_available: bool
 
 
@@ -43,7 +42,19 @@ class AIModelsResponse(BaseModel):
     current_model: str
 
 
-@router.get("/")
+class OllamaTestRequest(BaseModel):
+    """Request to test Ollama connectivity."""
+    url: str
+
+
+class OllamaTestResponse(BaseModel):
+    """Response from Ollama connectivity test."""
+    reachable: bool
+    error: str | None = None
+    models: List[str] | None = None
+
+
+@router.get("")
 async def get_configuration(
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db),
@@ -68,7 +79,7 @@ async def get_configuration_section(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.put("/")
+@router.put("")
 async def update_configuration(
     request: ConfigUpdateRequest,
     current_user: User = Depends(get_current_admin_user),
@@ -90,49 +101,111 @@ async def update_configuration(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/ai/test-connection")
+async def test_ollama_connection(
+    request: OllamaTestRequest,
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> OllamaTestResponse:
+    """Test connectivity to an Ollama instance (admin only)."""
+    service = ConfigService(db)
+    result = await service.test_ollama_connection(request.url)
+
+    return OllamaTestResponse(
+        reachable=result["reachable"],
+        error=result["error"],
+        models=result["models"]
+    )
+
+
 @router.get("/ai/models")
 async def get_ai_models(
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db),
 ) -> AIModelsResponse:
-    """Get available AI models from Ollama (admin only)."""
+    """
+    Get available AI models from Ollama (admin only).
+
+    Returns a list of installed models from the Ollama instance with their
+    availability status and metadata. If Ollama is unreachable, returns an
+    error in the response.
+    """
+    service = ConfigService(db)
+    ai_config = await service.get_section("ai")
+    current_model = ai_config.get("model", "llama3.2:latest")
+
+    # Get OllamaProvider with database-configured URL
+    from app.services.ai.ollama import get_ollama_provider_from_config, OllamaConnectionError
+
     try:
-        # Get current model from config
-        service = ConfigService(db)
-        ai_config = await service.get_section("ai")
-        current_model = ai_config.get("model", "llama3.2:latest")
+        ollama = await get_ollama_provider_from_config(db)
 
-        # Get available models from Ollama
-        ollama = OllamaProvider()
-        models_list = await ollama.list_models()
+        try:
+            # Fetch detailed model information
+            models_data = await ollama.list_models_detailed()
 
-        # Format models for response
-        models = []
-        for model_name in models_list:
-            models.append(AIModelInfo(
-                name=model_name,
-                is_available=True
-            ))
+            # Format models for response
+            models = []
+            model_names = []
 
-        # If current model not in list, add it as unavailable
-        if current_model not in models_list:
-            models.insert(0, AIModelInfo(
-                name=current_model,
-                is_available=False
-            ))
+            for model_info in models_data:
+                model_name = model_info.get("name", "")
+                if not model_name:
+                    continue
 
-        return AIModelsResponse(
-            models=models,
-            current_model=current_model
+                model_names.append(model_name)
+
+                # Format size for display (convert bytes to human-readable)
+                size_bytes = model_info.get("size", 0)
+                if size_bytes:
+                    # Convert to GB with 2 decimal places
+                    size_gb = size_bytes / (1024 ** 3)
+                    size_str = f"{size_gb:.2f} GB"
+                else:
+                    size_str = None
+
+                models.append(AIModelInfo(
+                    name=model_name,
+                    size=size_str,
+                    modified_at=model_info.get("modified_at"),
+                    is_available=True
+                ))
+
+            # If current model not in list, add it as unavailable
+            if current_model not in model_names:
+                models.insert(0, AIModelInfo(
+                    name=current_model,
+                    is_available=False
+                ))
+
+            logger.info(f"Successfully fetched {len(models)} models from Ollama")
+
+            return AIModelsResponse(
+                models=models,
+                current_model=current_model
+            )
+
+        finally:
+            await ollama.close()
+
+    except OllamaConnectionError as e:
+        logger.error(f"Cannot connect to Ollama: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "Cannot connect to Ollama",
+                "message": str(e),
+                "configured_url": ai_config.get("ollama_url", "Not configured"),
+                "suggestion": "Ensure Ollama is running and the URL is correct in configuration"
+            }
         )
     except Exception as e:
-        logger.error(f"Failed to fetch AI models: {e}")
-        # Return fallback response
-        return AIModelsResponse(
-            models=[
-                AIModelInfo(name="llama3.2:latest", is_available=False),
-                AIModelInfo(name="llama3.1:latest", is_available=False),
-                AIModelInfo(name="mistral:latest", is_available=False),
-            ],
-            current_model=current_model
+        logger.error(f"Failed to fetch AI models: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Failed to fetch models",
+                "message": str(e),
+                "type": type(e).__name__
+            }
         )

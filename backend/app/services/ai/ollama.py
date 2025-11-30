@@ -563,6 +563,46 @@ class OllamaProvider(BaseLLMProvider):
         except Exception as e:
             raise OllamaError(f"Failed to list Ollama models: {str(e)}", e) from e
 
+    async def list_models_detailed(self) -> List[Dict[str, Any]]:
+        """
+        List available Ollama models with detailed information.
+
+        Returns:
+            List of dictionaries containing model information including:
+            - name: Model name (e.g., "llama3.2:latest")
+            - size: Model size in bytes
+            - modified_at: Last modification timestamp
+            - digest: Model digest/hash
+            - details: Additional model details if available
+
+        Raises:
+            OllamaConnectionError: If cannot connect to Ollama
+            OllamaError: If listing fails
+
+        Example:
+            >>> models = await provider.list_models_detailed()
+            >>> for model in models:
+            ...     print(f"{model['name']}: {model['size']} bytes")
+        """
+        logger.debug("Fetching detailed models from Ollama")
+
+        try:
+            client = await self._get_client()
+            response = await client.get("/api/tags")
+            response.raise_for_status()
+
+            result = response.json()
+            models_data = result.get("models", [])
+
+            logger.debug(f"Found {len(models_data)} Ollama models with details")
+            return models_data
+
+        except httpx.ConnectError as e:
+            raise OllamaConnectionError(self.base_url) from e
+
+        except Exception as e:
+            raise OllamaError(f"Failed to list Ollama models: {str(e)}", e) from e
+
     async def health_check(self) -> bool:
         """
         Check if Ollama is accessible.
@@ -688,4 +728,58 @@ async def get_ollama_provider(
         model=model,
         timeout=timeout,
         max_retries=max_retries,
+    )
+
+
+async def get_ollama_provider_from_config(db_session) -> OllamaProvider:
+    """
+    Get an Ollama provider instance using database configuration.
+
+    This function loads AI configuration from the database (if overridden)
+    and creates an OllamaProvider with the configured settings. The ollama_url
+    from the database config takes precedence over environment variables.
+
+    Args:
+        db_session: Async database session for loading config
+
+    Returns:
+        OllamaProvider instance configured from database settings
+
+    Example:
+        >>> from app.database.session import get_db
+        >>> db = await anext(get_db())
+        >>> provider = await get_ollama_provider_from_config(db)
+        >>> response = await provider.generate(prompt="Test")
+    """
+    from app.config import get_settings
+    from app.services.config_service import ConfigService
+
+    # Get base settings from environment/YAML
+    settings = get_settings()
+
+    # Get AI config section with database overrides applied
+    config_service = ConfigService(db_session)
+    ai_config = await config_service.get_section("ai")
+
+    # Determine which URL to use (database override takes precedence)
+    # Priority: 1. Database ollama_url, 2. Env var, 3. Default
+    base_url = (
+        ai_config.get("ollama_url") or
+        settings.ai.ollama.base_url
+    )
+
+    # Get model (from database override or settings)
+    model = ai_config.get("model") or settings.ai.ollama.model
+
+    logger.info(
+        f"Creating OllamaProvider with base_url={base_url}, model={model} "
+        f"(from {'database' if ai_config.get('ollama_url') else 'environment'})"
+    )
+
+    return OllamaProvider(
+        base_url=base_url,
+        model=model,
+        timeout=settings.ai.ollama.timeout,
+        max_retries=settings.ai.ollama.max_retries,
+        temperature=settings.ai.ollama.temperature,
     )

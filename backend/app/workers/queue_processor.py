@@ -50,25 +50,28 @@ class QueueProcessor:
         logger.info("Starting queue processor...")
 
         try:
-            # Initialize AI provider
-            logger.info("Initializing AI provider (Ollama)")
-            self.ai_provider = OllamaProvider(
-                base_url=self.settings.ai.ollama.base_url,
-                model=self.settings.ai.ollama.model,
-                timeout=self.settings.ai.ollama.timeout,
-                max_retries=self.settings.ai.ollama.max_retries,
-                temperature=self.settings.ai.ollama.temperature,
-            )
+            # Initialize AI provider using database configuration
+            # This allows runtime config changes to take effect
+            logger.info("Initializing AI provider (Ollama) from database config")
+
+            # We need a database session to load config
+            from app.database.session import async_session_maker
+            from app.services.ai.ollama import get_ollama_provider_from_config
+
+            async with async_session_maker() as db:
+                self.ai_provider = await get_ollama_provider_from_config(db)
 
             # Verify AI provider is healthy
             ai_healthy = await self.ai_provider.health_check()
             if not ai_healthy:
+                # Try to get the configured URL for logging
+                base_url = self.ai_provider.base_url
                 logger.warning(
-                    f"AI provider health check failed at {self.settings.ai.ollama.base_url}. "
+                    f"AI provider health check failed at {base_url}. "
                     "Processing may fail until Ollama is available."
                 )
             else:
-                logger.info(f"AI provider healthy at {self.settings.ai.ollama.base_url}")
+                logger.info(f"AI provider healthy at {self.ai_provider.base_url}")
 
             # Initialize document processor with AI provider
             # Paperless client will be created per-user during processing

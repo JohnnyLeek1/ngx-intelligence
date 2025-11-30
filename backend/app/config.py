@@ -77,6 +77,12 @@ class AIConfig(BaseSettings):
     provider: Literal["ollama"] = Field(
         default="ollama", description="AI provider (currently only Ollama)"
     )
+    model: str = Field(
+        default="llama3.2", description="AI model to use"
+    )
+    ollama_url: Optional[str] = Field(
+        default=None, description="Ollama API base URL (overrides ollama.base_url)"
+    )
     ollama: OllamaConfig = Field(default_factory=OllamaConfig)
 
 
