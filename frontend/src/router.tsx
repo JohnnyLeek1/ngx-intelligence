@@ -6,7 +6,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import Dashboard from './pages/Dashboard';
 import HistoryPage from './pages/HistoryPage';
-import SettingsPage from './pages/SettingsPage';
+import SettingsPage from './pages/settings';
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
