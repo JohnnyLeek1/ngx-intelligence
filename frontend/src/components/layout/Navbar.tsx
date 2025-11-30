@@ -6,6 +6,7 @@ import { useLogout } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function Navbar() {
   const currentUser = useAtomValue(currentUserAtom);
@@ -31,11 +32,12 @@ export default function Navbar() {
       <div className="px-4 py-3 lg:px-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <span className="text-xl font-bold text-primary">
+            <span className="text-xl font-bold text-primary dark:text-white">
               NGX Intelligence
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2">
@@ -44,7 +46,7 @@ export default function Navbar() {
                       {getUserInitials(currentUser?.username || 'U')}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm">{currentUser?.username || 'User'}</span>
+                  <span className="text-sm dark:text-white">{currentUser?.username || 'User'}</span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
