@@ -26,6 +26,11 @@ export function useUpdateConfig() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['config'] });
       queryClient.invalidateQueries({ queryKey: ['config', variables.section] });
+
+      // If AI config was updated, also invalidate aiModels to refresh "currently using" label
+      if (variables.section === 'ai') {
+        queryClient.invalidateQueries({ queryKey: ['aiModels'] });
+      }
     },
   });
 }
