@@ -30,7 +30,8 @@ export function useRecentDocuments(limit: number = 10) {
   return useQuery({
     queryKey: ['recentDocuments', limit],
     queryFn: () => documentsApi.getRecent(limit),
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 10000, // Refresh every 10 seconds to match queue stats
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
   });
 }
 

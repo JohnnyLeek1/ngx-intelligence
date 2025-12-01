@@ -230,6 +230,7 @@ class DocumentProcessor:
             content=ocr_content,
             document_type=type_result.get("document_type"),
             correspondent=correspondent_result.get("correspondent"),
+            document_date=date_result.get("document_date"),
         )
         steps_results["title"] = title_result
 
@@ -705,6 +706,7 @@ IMPORTANT:
         content: str,
         document_type: Optional[str] = None,
         correspondent: Optional[str] = None,
+        document_date: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate descriptive title for document using AI.
@@ -713,10 +715,12 @@ IMPORTANT:
             content: OCR text content
             document_type: Document type for context
             correspondent: Correspondent for context
+            document_date: Document date for context
 
         Returns:
             {
                 "title": str,
+                "raw_title": str,
                 "confidence": float
             }
         """
@@ -734,6 +738,9 @@ IMPORTANT:
         if correspondent:
             context_info.append(f"Correspondent: {correspondent}")
 
+        # Get title template to inform AI
+        title_template = self.settings.naming.title_template
+
         user_prompt = f"""Analyze this document and generate a concise, descriptive title.
 
 {chr(10).join(context_info) if context_info else ""}
@@ -741,20 +748,30 @@ IMPORTANT:
 Document Content (first 3000 chars):
 {content[:3000]}
 
+IMPORTANT FORMATTING REQUIREMENT:
+Your generated title will be formatted using this template: "{title_template}"
+Available template variables: {{date}}, {{correspondent}}, {{type}}, {{title}}
+Where {{title}} will be YOUR generated title.
+
+For example:
+- If template is "{{title}}", generate a complete descriptive title
+- If template is "{{correspondent}} {{type}}", generate a brief supplementary title (the correspondent and type will be added)
+- If template is "{{type}} - {{title}}", generate a title that complements the type
+
 Return a JSON object with:
-- title: A concise, descriptive title (maximum {max_length} characters)
+- title: A concise, descriptive title (maximum {max_length} characters) that works with the template above
 - confidence: Confidence score 0.0-1.0
 - reasoning: Brief explanation of the title choice
 
 Title Guidelines:
 - Maximum {max_length} characters
 - Be specific and descriptive
-- Include key information (e.g., subject, purpose, period)
+- Consider what information the template will add
+- Avoid redundancy with template variables
 - Avoid generic titles like "Document" or "Letter"
 - Do not include file extensions or special characters
-- Examples: "Monthly Electric Bill January 2024", "Employment Contract - John Doe", "Tax Return 2023"
 
-IMPORTANT: The title should be clear enough that someone can identify the document at a glance.
+CRITICAL: The final title MUST work well with the template "{title_template}". Generate your title accordingly.
 """
 
         logger.debug(f"Title generation prompt:\n{user_prompt}")
@@ -766,21 +783,42 @@ IMPORTANT: The title should be clear enough that someone can identify the docume
                 temperature=0.5,
             )
 
-            title = response_data.get("title", "Document")
+            raw_title = response_data.get("title", "Document")
             confidence = float(response_data.get("confidence", 0.0))
 
-            # Enforce max length
-            if len(title) > max_length:
-                title = title[:max_length - 3] + "..."
+            # Enforce max length on raw title
+            if len(raw_title) > max_length:
+                raw_title = raw_title[:max_length - 3] + "..."
 
-            # Clean special characters if configured
+            # Clean special characters from raw title if configured
             if self.settings.naming.clean_special_chars:
-                title = self._clean_filename(title)
+                raw_title = self._clean_filename(raw_title)
 
-            logger.debug(f"Generated title: {title} (confidence: {confidence:.2f})")
+            logger.debug(f"AI-generated raw title: '{raw_title}' (confidence: {confidence:.2f})")
+
+            # Apply title template
+            title_template = self.settings.naming.title_template
+            logger.info(f"Applying title template: '{title_template}'")
+
+            template_vars = {
+                "title": raw_title,
+                "type": document_type or "",
+                "correspondent": correspondent or "",
+                "date": document_date or "",
+            }
+
+            formatted_title = self._apply_naming_template(
+                template=title_template,
+                variables=template_vars,
+            )
+
+            logger.info(
+                f"Title template applied: raw='{raw_title}' -> formatted='{formatted_title}'"
+            )
 
             return {
-                "title": title,
+                "title": formatted_title,
+                "raw_title": raw_title,
                 "confidence": confidence,
                 "reasoning": response_data.get("reasoning", ""),
             }
@@ -789,6 +827,7 @@ IMPORTANT: The title should be clear enough that someone can identify the docume
             logger.warning(f"Failed to generate title: {e}")
             return {
                 "title": "Document",
+                "raw_title": "Document",
                 "confidence": 0.0,
                 "error": str(e),
             }

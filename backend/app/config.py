@@ -231,6 +231,15 @@ class NamingConfig(BaseSettings):
         default="{date}_{correspondent}_{type}_{title}",
         description="Default naming template",
     )
+    title_template: str = Field(
+        default="{title}",
+        description=(
+            "Template for formatting the document title. "
+            "Available variables: {title} (AI-generated raw title), "
+            "{type} (document type), {correspondent}, {date}. "
+            "Example: '{type} - {title}' or '{correspondent} {type}'"
+        ),
+    )
     date_format: str = Field(default="YYYY-MM-DD", description="Date format")
     max_title_length: int = Field(
         default=100, ge=10, description="Maximum title length"

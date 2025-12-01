@@ -41,6 +41,7 @@ export function useProcessNow() {
       queryClient.invalidateQueries({ queryKey: ['queueStats'] });
       queryClient.invalidateQueries({ queryKey: ['recentDocuments'] });
       queryClient.invalidateQueries({ queryKey: ['documentStats'] });
+      queryClient.invalidateQueries({ queryKey: ['dailyMetrics'] });
     },
   });
 }
