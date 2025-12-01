@@ -1,0 +1,105 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${{ github.ref_name }}$" | head -n 1)
+
+          # Generate changelog between tags
+          if [ -z "$PREV_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" ${{ github.ref_name }})
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" ${PREV_TAG}..${{ github.ref_name }})
+          fi
+
+          # Save to file
+          echo "$CHANGELOG" > CHANGELOG.md
+
+          # Set output
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release Notes
+        id: release_notes
+        run: |
+          VERSION="${{ github.ref_name }}"
+          cat << EOF > RELEASE_NOTES.md
+          ## Docker Images
+
+          Pull the latest release:
+
+          \`\`\`bash
+          # Backend
+          docker pull ghcr.io/${{ github.repository }}-backend:${VERSION}
+
+          # Frontend
+          docker pull ghcr.io/${{ github.repository }}-frontend:${VERSION}
+          \`\`\`
+
+          ## Quick Start
+
+          \`\`\`bash
+          # Clone the repository
+          git clone https://github.com/${{ github.repository }}.git
+          cd ngx-intelligence
+
+          # Checkout this release
+          git checkout ${VERSION}
+
+          # Configure environment
+          cp .env.example .env
+          nano .env  # Add your configuration
+
+          # Start services
+          docker-compose up -d
+          \`\`\`
+
+          ## What's Changed
+
+          ${{ steps.changelog.outputs.changelog }}
+
+          ## Full Changelog
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${VERSION}
+
+          ## Container Images
+
+          - Backend: \`ghcr.io/${{ github.repository }}-backend:${VERSION}\`
+          - Frontend: \`ghcr.io/${{ github.repository }}-frontend:${VERSION}\`
+
+          Both images are available for:
+          - linux/amd64
+          - linux/arm64
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

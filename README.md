@@ -8,6 +8,9 @@ ngx-intelligence is an intelligent document processing companion for [Paperless-
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![React 18+](https://img.shields.io/badge/react-18+-blue.svg)](https://reactjs.org/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
+[![Docker Build](https://github.com/JohnnyLeek1/ngx-intelligence/actions/workflows/docker-build.yml/badge.svg)](https://github.com/JohnnyLeek1/ngx-intelligence/actions/workflows/docker-build.yml)
+[![Backend](https://ghcr-badge.egpl.dev/johnnyleek1/ngx-intelligence-backend/latest_tag?trim=major&label=backend)](https://github.com/JohnnyLeek1/ngx-intelligence/pkgs/container/ngx-intelligence-backend)
+[![Frontend](https://ghcr-badge.egpl.dev/johnnyleek1/ngx-intelligence-frontend/latest_tag?trim=major&label=frontend)](https://github.com/JohnnyLeek1/ngx-intelligence/pkgs/container/ngx-intelligence-frontend)
 
 ---
 
@@ -36,6 +39,10 @@ ngx-intelligence is an intelligent document processing companion for [Paperless-
 
 ### Installation
 
+#### Option 1: Using Pre-built Images (Recommended)
+
+Use pre-built multi-architecture images from GitHub Container Registry:
+
 ```bash
 # Clone the repository
 git clone https://github.com/JohnnyLeek1/ngx-intelligence.git
@@ -48,7 +55,30 @@ openssl rand -hex 32  # Copy for SECRET_KEY
 cp .env.example .env
 nano .env  # Add your SECRET_KEY and Ollama URL
 
-# Start services
+# Start services using pre-built images
+docker-compose -f docker-compose.prod.yml up -d
+
+# Access the application
+open http://localhost:3000
+```
+
+#### Option 2: Build from Source
+
+Build images locally from source:
+
+```bash
+# Clone the repository
+git clone https://github.com/JohnnyLeek1/ngx-intelligence.git
+cd ngx-intelligence
+
+# Generate secrets
+openssl rand -hex 32  # Copy for SECRET_KEY
+
+# Configure environment
+cp .env.example .env
+nano .env  # Add your SECRET_KEY and Ollama URL
+
+# Build and start services
 docker-compose up -d
 
 # Access the application
@@ -64,6 +94,26 @@ open http://localhost:3000
 5. Start processing documents!
 
 ---
+
+## Docker Images
+
+Pre-built multi-architecture Docker images are available on GitHub Container Registry:
+
+```bash
+# Pull latest images
+docker pull ghcr.io/johnnyleek1/ngx-intelligence-backend:latest
+docker pull ghcr.io/johnnyleek1/ngx-intelligence-frontend:latest
+
+# Pull specific version
+docker pull ghcr.io/johnnyleek1/ngx-intelligence-backend:v1.0.0
+docker pull ghcr.io/johnnyleek1/ngx-intelligence-frontend:v1.0.0
+```
+
+**Supported Architectures**:
+- linux/amd64 (x86_64)
+- linux/arm64 (ARM64/v8)
+
+Images are automatically built and pushed on every commit to `main` and for all tagged releases.
 
 ## Documentation
 
