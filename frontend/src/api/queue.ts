@@ -35,4 +35,10 @@ export const queueApi = {
     });
     return response.data;
   },
+
+  // Reset queue statistics (clear completed/failed items)
+  reset: async (): Promise<{ message: string }> => {
+    const response = await apiClient.delete<{ message: string }>('/queue/completed');
+    return response.data;
+  },
 };

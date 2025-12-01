@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.database.models import QueueStatus
+from app.schemas.common import UTCBaseModel, UTCDatetime
 
 
 # Request schemas
@@ -27,7 +28,7 @@ class QueueClearRequest(BaseModel):
 
 
 # Response schemas
-class QueueItemResponse(BaseModel):
+class QueueItemResponse(UTCBaseModel):
     """Schema for queue item responses."""
 
     id: UUID
@@ -35,9 +36,9 @@ class QueueItemResponse(BaseModel):
     paperless_document_id: int
     priority: int
     status: QueueStatus
-    queued_at: datetime
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
+    queued_at: UTCDatetime
+    started_at: Optional[UTCDatetime]
+    completed_at: Optional[UTCDatetime]
     retry_count: int
     last_error: Optional[str]
 

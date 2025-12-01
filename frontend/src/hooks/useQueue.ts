@@ -44,3 +44,15 @@ export function useProcessNow() {
     },
   });
 }
+
+export function useResetQueue() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => queueApi.reset(),
+    onSuccess: () => {
+      // Refresh queue stats after clearing
+      queryClient.invalidateQueries({ queryKey: ['queueStats'] });
+    },
+  });
+}

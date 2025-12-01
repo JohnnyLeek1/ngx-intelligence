@@ -5,9 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCustom } from '@/components/ui/alert-custom';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -62,18 +61,13 @@ export default function RegisterPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+              <AlertCustom variant="error" message={error} />
             )}
             {success && (
-              <Alert className="border-green-500 bg-green-50 text-green-900">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertDescription>
-                  Registration successful! Redirecting to login...
-                </AlertDescription>
-              </Alert>
+              <AlertCustom
+                variant="success"
+                message="Registration successful! Redirecting to login..."
+              />
             )}
 
             <div className="grid gap-4 md:grid-cols-2">

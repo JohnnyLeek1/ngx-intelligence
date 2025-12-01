@@ -8,6 +8,7 @@ export interface User {
   role: UserRole;
   paperless_url: string;
   paperless_username: string;
+  timezone: string;
   created_at: string;
   updated_at: string;
   is_active: boolean;
@@ -29,11 +30,18 @@ export interface UserUpdate {
   paperless_username?: string;
   paperless_token?: string;
   is_active?: boolean;
+  timezone?: string;
 }
 
 export interface UserPasswordChange {
   current_password: string;
   new_password: string;
+}
+
+export interface PaperlessCredentialsUpdate {
+  paperless_url: string;
+  paperless_username: string;
+  paperless_token: string;
 }
 
 // Auth types
@@ -221,4 +229,27 @@ export interface SuccessRateDataPoint {
   date: string;
   success_rate: number;
   total: number;
+}
+
+// Daily metrics types
+export interface DailyMetrics {
+  id: string;
+  user_id: string;
+  date: string;
+  total_documents: number;
+  successful_documents: number;
+  failed_documents: number;
+  avg_confidence_score: number | null;
+  avg_processing_time_ms: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DailyMetricsResponse {
+  today: DailyMetrics | null;
+  yesterday: DailyMetrics | null;
+  documents_change?: number;
+  documents_change_percent?: number;
+  confidence_change?: number;
+  processing_time_change?: number;
 }

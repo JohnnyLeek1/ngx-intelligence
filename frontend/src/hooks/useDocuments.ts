@@ -45,3 +45,11 @@ export function useReprocessDocuments() {
     },
   });
 }
+
+export function useDailyMetrics() {
+  return useQuery({
+    queryKey: ['dailyMetrics'],
+    queryFn: () => documentsApi.getDailyMetrics(),
+    refetchInterval: 60000, // Refresh every minute
+  });
+}

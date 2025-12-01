@@ -2,13 +2,37 @@
 Common Pydantic schemas shared across the application.
 """
 
-from typing import Any, Generic, List, Optional, TypeVar
+from datetime import datetime
+from typing import Annotated, Any, Callable, Generic, List, Optional, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
 
 
 # Generic types
 T = TypeVar("T")
+
+
+# Custom UTC datetime type with proper serialization for Pydantic v2
+# This ensures all datetime fields are serialized with 'Z' suffix for UTC
+UTCDatetime = Annotated[
+    datetime,
+    PlainSerializer(
+        lambda dt: f"{dt.isoformat()}Z" if dt.tzinfo is None else dt.isoformat(),
+        return_type=str,
+    ),
+]
+
+
+# Base schema for models with from_attributes support
+class UTCBaseModel(BaseModel):
+    """
+    Base Pydantic model for response schemas.
+
+    Use UTCDatetime type annotation for datetime fields to ensure proper
+    UTC serialization with 'Z' suffix.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Common response schemas

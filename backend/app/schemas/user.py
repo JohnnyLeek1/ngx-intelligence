@@ -6,9 +6,11 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
+import pytz
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.database.models import UserRole
+from app.schemas.common import UTCBaseModel, UTCDatetime
 
 
 # Base schemas
@@ -19,12 +21,26 @@ class UserBase(BaseModel):
     email: Optional[EmailStr] = None
     paperless_url: str = Field(..., min_length=1, max_length=255)
     paperless_username: str = Field(..., min_length=1, max_length=255)
+    timezone: str = Field(default="UTC", min_length=1, max_length=50)
 
     @field_validator("paperless_url")
     @classmethod
     def validate_url(cls, v: str) -> str:
         """Ensure URL doesn't have trailing slash."""
         return v.rstrip("/")
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, v: str) -> str:
+        """Validate that timezone is a valid IANA timezone name."""
+        try:
+            pytz.timezone(v)
+        except pytz.exceptions.UnknownTimeZoneError:
+            raise ValueError(
+                f"Invalid timezone '{v}'. Must be a valid IANA timezone name "
+                "(e.g., 'America/Los_Angeles', 'UTC', 'Europe/London')"
+            )
+        return v
 
 
 # Request schemas
@@ -57,7 +73,23 @@ class UserUpdate(BaseModel):
     paperless_url: Optional[str] = None
     paperless_username: Optional[str] = None
     paperless_token: Optional[str] = None
+    timezone: Optional[str] = None
     is_active: Optional[bool] = None
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, v: Optional[str]) -> Optional[str]:
+        """Validate that timezone is a valid IANA timezone name."""
+        if v is None:
+            return v
+        try:
+            pytz.timezone(v)
+        except pytz.exceptions.UnknownTimeZoneError:
+            raise ValueError(
+                f"Invalid timezone '{v}'. Must be a valid IANA timezone name "
+                "(e.g., 'America/Los_Angeles', 'UTC', 'Europe/London')"
+            )
+        return v
 
 
 class UserPasswordChange(BaseModel):
@@ -81,14 +113,28 @@ class UserPasswordChange(BaseModel):
         return v
 
 
+class PaperlessCredentialsUpdate(BaseModel):
+    """Schema for updating Paperless-ngx credentials."""
+
+    paperless_url: str = Field(..., min_length=1, max_length=255)
+    paperless_username: str = Field(..., min_length=1, max_length=255)
+    paperless_token: str = Field(default="", max_length=255)
+
+    @field_validator("paperless_url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        """Ensure URL doesn't have trailing slash."""
+        return v.rstrip("/")
+
+
 # Response schemas
-class UserResponse(UserBase):
+class UserResponse(UTCBaseModel, UserBase):
     """Schema for user responses."""
 
     id: UUID
     role: UserRole
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
     is_active: bool
 
     model_config = {"from_attributes": True}

@@ -4,7 +4,8 @@ import type {
   ProcessedDocumentDetail,
   DocumentStatsResponse,
   DocumentFilterRequest,
-  DocumentReprocessRequest
+  DocumentReprocessRequest,
+  DailyMetricsResponse
 } from '@/types';
 
 export const documentsApi = {
@@ -47,6 +48,12 @@ export const documentsApi = {
     const response = await apiClient.get<ProcessedDocument[]>('/documents', {
       params: { limit, offset: 0 }
     });
+    return response.data;
+  },
+
+  // Get daily metrics (today vs yesterday)
+  getDailyMetrics: async (): Promise<DailyMetricsResponse> => {
+    const response = await apiClient.get<DailyMetricsResponse>('/metrics/daily');
     return response.data;
   },
 };

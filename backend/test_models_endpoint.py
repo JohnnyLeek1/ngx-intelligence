@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from app.services.ai.ollama import get_ollama_provider_from_config, OllamaProvider
 from app.services.config_service import ConfigService
-from app.database.session import async_session_maker, init_db
+from app.database.session import sessionmanager, init_db
 
 
 async def test_list_models_basic():
@@ -79,7 +79,7 @@ async def test_with_database_config():
 
     await init_db()
 
-    async with async_session_maker() as db:
+    async with sessionmanager.session() as db:
         try:
             provider = await get_ollama_provider_from_config(db)
 
@@ -112,7 +112,7 @@ async def test_endpoint_logic():
 
     await init_db()
 
-    async with async_session_maker() as db:
+    async with sessionmanager.session() as db:
         service = ConfigService(db)
         ai_config = await service.get_section("ai")
         current_model = ai_config.get("model", "llama3.2:latest")

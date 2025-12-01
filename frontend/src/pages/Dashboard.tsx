@@ -1,29 +1,36 @@
 import { useState } from 'react';
-import { useDocumentStats, useRecentDocuments } from '@/hooks/useDocuments';
-import { useQueueStats, useProcessNow } from '@/hooks/useQueue';
+import { useDocumentStats, useRecentDocuments, useDailyMetrics } from '@/hooks/useDocuments';
+import { useQueueStats, useProcessNow, useResetQueue } from '@/hooks/useQueue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FileText, CheckCircle, XCircle, Clock, TrendingUp, PlayCircle, AlertCircle } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { formatProcessingTime } from '@/lib/utils';
+import { AlertCustom } from '@/components/ui/alert-custom';
+import { FileText, CheckCircle, XCircle, Clock, TrendingUp, TrendingDown, PlayCircle, Gauge, Timer, Minus, RotateCcw } from 'lucide-react';
+import { formatProcessingTime, formatRelativeTime } from '@/lib/utils';
 import type { ProcessingStatus } from '@/types';
+
+interface TrendData {
+  label: string;
+  isImprovement: boolean;
+  isNeutral?: boolean;
+}
 
 function StatCard({
   title,
   value,
   description,
   icon: Icon,
-  trend
+  trend,
+  trendData
 }: {
   title: string;
   value: string | number;
   description: string;
   icon: any;
   trend?: string;
+  trendData?: TrendData;
 }) {
   return (
     <Card>
@@ -40,6 +47,24 @@ function StatCard({
           <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
             <TrendingUp className="h-3 w-3" />
             {trend}
+          </p>
+        )}
+        {trendData && (
+          <p className={`text-xs mt-1 flex items-center gap-1 ${
+            trendData.isNeutral
+              ? 'text-muted-foreground'
+              : trendData.isImprovement
+                ? 'text-green-600'
+                : 'text-red-600'
+          }`}>
+            {trendData.isNeutral ? (
+              <Minus className="h-3 w-3" />
+            ) : trendData.isImprovement ? (
+              <TrendingUp className="h-3 w-3" />
+            ) : (
+              <TrendingDown className="h-3 w-3" />
+            )}
+            {trendData.label}
           </p>
         )}
       </CardContent>
@@ -60,34 +85,95 @@ function StatusBadge({ status }: { status: ProcessingStatus }) {
   return <Badge variant={config.variant}>{config.label}</Badge>;
 }
 
+// Helper function to calculate confidence trend
+function calculateConfidenceTrend(todayConfidence: number | null, yesterdayConfidence: number | null): TrendData | undefined {
+  if (todayConfidence === null || yesterdayConfidence === null) {
+    return undefined;
+  }
+
+  const change = todayConfidence - yesterdayConfidence;
+  const percentChange = Math.abs(change * 100);
+
+  if (Math.abs(change) < 0.01) {
+    return {
+      label: 'Same as yesterday',
+      isImprovement: false,
+      isNeutral: true,
+    };
+  }
+
+  return {
+    label: `${change > 0 ? '+' : '-'}${percentChange.toFixed(1)}% vs yesterday`,
+    isImprovement: change > 0,
+  };
+}
+
+// Helper function to calculate processing time trend
+function calculateProcessingTimeTrend(todayTimeMs: number | null, yesterdayTimeMs: number | null): TrendData | undefined {
+  if (todayTimeMs === null || yesterdayTimeMs === null) {
+    return undefined;
+  }
+
+  const change = todayTimeMs - yesterdayTimeMs;
+
+  if (Math.abs(change) < 100) {
+    return {
+      label: 'Same as yesterday',
+      isImprovement: false,
+      isNeutral: true,
+    };
+  }
+
+  return {
+    label: `${Math.abs(change) >= 1000 ? formatProcessingTime(Math.abs(change)) : `${Math.round(Math.abs(change))}ms`} ${change > 0 ? 'slower' : 'faster'} than yesterday`,
+    isImprovement: change < 0, // Lower is better for processing time
+  };
+}
+
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useDocumentStats();
   const { data: queueStats, isLoading: queueLoading } = useQueueStats();
   const { data: recentDocs, isLoading: recentLoading } = useRecentDocuments(10);
+  const { data: dailyMetrics, isLoading: dailyMetricsLoading } = useDailyMetrics();
   const processNow = useProcessNow();
-  const [processResult, setProcessResult] = useState<string | null>(null);
+  const resetQueue = useResetQueue();
+  const [processResult, setProcessResult] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const handleProcessNow = async () => {
     setProcessResult(null);
     try {
       const result = await processNow.mutateAsync(10);
-      setProcessResult(result.message);
+      // Determine message type based on content
+      const type = result.queued === 0 ? 'info' : 'success';
+      setProcessResult({ message: result.message, type });
       setTimeout(() => setProcessResult(null), 5000);
     } catch (error) {
-      setProcessResult('Failed to queue documents for processing');
+      setProcessResult({ message: 'Failed to queue documents for processing', type: 'error' });
       setTimeout(() => setProcessResult(null), 5000);
     }
   };
 
-  if (statsLoading || queueLoading) {
+  const handleResetQueue = async () => {
+    setProcessResult(null);
+    try {
+      const result = await resetQueue.mutateAsync();
+      setProcessResult({ message: result.message, type: 'success' });
+      setTimeout(() => setProcessResult(null), 5000);
+    } catch (error) {
+      setProcessResult({ message: 'Failed to reset queue statistics', type: 'error' });
+      setTimeout(() => setProcessResult(null), 5000);
+    }
+  };
+
+  if (statsLoading || queueLoading || dailyMetricsLoading) {
     return (
       <div className="space-y-6">
         <div>
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-4 w-96 mt-2" />
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <Card key={i}>
               <CardHeader className="space-y-0 pb-2">
                 <Skeleton className="h-4 w-24" />
@@ -113,7 +199,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <StatCard
           title="Total Documents"
           value={stats?.total || 0}
@@ -134,6 +220,30 @@ export default function Dashboard() {
           icon={XCircle}
         />
         <StatCard
+          title="Average Confidence"
+          value={dailyMetrics?.today?.avg_confidence_score !== null && dailyMetrics?.today?.avg_confidence_score !== undefined
+            ? `${Math.round(dailyMetrics.today.avg_confidence_score * 100)}%`
+            : 'N/A'}
+          description="Today's average score"
+          icon={Gauge}
+          trendData={calculateConfidenceTrend(
+            dailyMetrics?.today?.avg_confidence_score ?? null,
+            dailyMetrics?.yesterday?.avg_confidence_score ?? null
+          )}
+        />
+        <StatCard
+          title="Average Processing Time"
+          value={dailyMetrics?.today?.avg_processing_time_ms !== null && dailyMetrics?.today?.avg_processing_time_ms !== undefined
+            ? formatProcessingTime(dailyMetrics.today.avg_processing_time_ms)
+            : 'N/A'}
+          description="Today's average time"
+          icon={Timer}
+          trendData={calculateProcessingTimeTrend(
+            dailyMetrics?.today?.avg_processing_time_ms ?? null,
+            dailyMetrics?.yesterday?.avg_processing_time_ms ?? null
+          )}
+        />
+        <StatCard
           title="Queue"
           value={queueStats?.queued || 0}
           description={`${queueStats?.processing || 0} processing now`}
@@ -149,26 +259,33 @@ export default function Dashboard() {
               <CardTitle>Processing Queue</CardTitle>
               <CardDescription>Real-time queue status</CardDescription>
             </div>
-            <Button
-              onClick={handleProcessNow}
-              disabled={processNow.isPending}
-              size="sm"
-            >
-              <PlayCircle className="h-4 w-4 mr-2" />
-              {processNow.isPending ? 'Processing...' : 'Process Now'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleResetQueue}
+                disabled={resetQueue.isPending}
+                variant="outline"
+                size="sm"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                {resetQueue.isPending ? 'Clearing...' : 'Clear Stats'}
+              </Button>
+              <Button
+                onClick={handleProcessNow}
+                disabled={processNow.isPending}
+                size="sm"
+              >
+                <PlayCircle className="h-4 w-4 mr-2" />
+                {processNow.isPending ? 'Processing...' : 'Process Now'}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {processResult && (
-            <Alert variant={processResult.includes('Failed') ? 'destructive' : 'default'}>
-              {processResult.includes('Failed') ? (
-                <AlertCircle className="h-4 w-4" />
-              ) : (
-                <CheckCircle className="h-4 w-4" />
-              )}
-              <AlertDescription>{processResult}</AlertDescription>
-            </Alert>
+            <AlertCustom
+              variant={processResult.type}
+              message={processResult.message}
+            />
           )}
           <div className="grid gap-4 md:grid-cols-4">
             <div className="space-y-1">
@@ -228,7 +345,7 @@ export default function Dashboard() {
                       <StatusBadge status={doc.status} />
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {formatDistanceToNow(new Date(doc.processed_at), { addSuffix: true })}
+                      {formatRelativeTime(doc.processed_at)}
                       {doc.confidence_score && (
                         <> • Confidence: {Math.round(doc.confidence_score * 100)}%</>
                       )}

@@ -2,9 +2,12 @@
 Pydantic schemas for Configuration-related API operations.
 """
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+from app.schemas.common import UTCBaseModel
 
 
 # Request schemas
@@ -78,13 +81,13 @@ class PromptUpdateRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=10000)
 
 
-class PromptResponse(BaseModel):
+class PromptResponse(UTCBaseModel):
     """Schema for prompt response."""
 
     prompt_type: str
     content: str
     version: int
-    created_at: str
+    created_at: datetime
     is_active: bool
 
 

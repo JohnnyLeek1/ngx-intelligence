@@ -757,6 +757,8 @@ Title Guidelines:
 IMPORTANT: The title should be clear enough that someone can identify the document at a glance.
 """
 
+        logger.debug(f"Title generation prompt:\n{user_prompt}")
+
         try:
             response_data = await self.ai_provider.generate_json(
                 prompt=user_prompt,
@@ -813,7 +815,9 @@ IMPORTANT: The title should be clear enough that someone can identify the docume
             ... )
             "2024-01-15_ACME_Corp_Invoice"
         """
-        logger.debug(f"Applying naming template: {template}")
+        logger.info(f"Applying naming template: '{template}'")
+        logger.info(f"Template variables: {variables}")
+        logger.info(f"clean_special_chars setting: {self.settings.naming.clean_special_chars}")
 
         # Clean and prepare variables
         cleaned_vars = {}
@@ -833,21 +837,30 @@ IMPORTANT: The title should be clear enough that someone can identify the docume
             placeholder = f"{{{key}}}"
             result = result.replace(placeholder, value)
 
+        logger.info(f"After variable substitution: '{result}'")
+
         # Clean up any remaining placeholders or multiple underscores
         result = re.sub(r"\{[^}]*\}", "", result)  # Remove unused placeholders
         result = re.sub(r"_+", "_", result)  # Replace multiple underscores
         result = result.strip("_")  # Remove leading/trailing underscores
 
+        logger.info(f"After placeholder cleanup: '{result}'")
+
         # Final cleanup
         if self.settings.naming.clean_special_chars:
+            before_clean = result
             result = self._clean_filename(result)
+            logger.info(f"After clean_special_chars: '{before_clean}' -> '{result}'")
 
-        logger.debug(f"Generated filename: {result}")
+        logger.info(f"Final generated filename: '{result}'")
         return result or "document"
 
     def _clean_filename(self, filename: str) -> str:
         """
         Clean filename for filesystem compatibility.
+
+        Replaces problematic characters that are invalid on major filesystems.
+        Keeps spaces and common punctuation for readability.
 
         Args:
             filename: Original filename
@@ -855,18 +868,34 @@ IMPORTANT: The title should be clear enough that someone can identify the docume
         Returns:
             Cleaned filename safe for filesystems
 
+        Note:
+            Characters replaced with underscore: / \ < > : " | ? *
+            (Colon is problematic on Windows, which doesn't allow it except in drive letters)
+
         Example:
             >>> _clean_filename("My File: Test / 2024")
-            "My_File_Test_2024"
+            "My File_ Test _ 2024"
         """
-        # Replace problematic characters with underscores
-        cleaned = re.sub(r'[<>:"/\\|?*]', "_", filename)
+        original = filename
 
-        # Replace multiple spaces/underscores with single underscore
-        cleaned = re.sub(r"[\s_]+", "_", cleaned)
+        # Replace problematic characters with underscores
+        # Keeping: spaces, hyphens, parentheses, apostrophes, periods, commas
+        # Replacing: / \ < > : " | ? * (and control characters)
+        cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", filename)
+        if cleaned != original:
+            logger.debug(f"Replaced problematic chars: '{original}' -> '{cleaned}'")
+
+        # Replace multiple consecutive underscores with single underscore
+        before_underscore = cleaned
+        cleaned = re.sub(r"_{2,}", "_", cleaned)
+        if cleaned != before_underscore:
+            logger.debug(f"Collapsed underscores: '{before_underscore}' -> '{cleaned}'")
 
         # Remove leading/trailing underscores and spaces
+        before_strip = cleaned
         cleaned = cleaned.strip("_ ")
+        if cleaned != before_strip:
+            logger.debug(f"Stripped edges: '{before_strip}' -> '{cleaned}'")
 
         return cleaned
 

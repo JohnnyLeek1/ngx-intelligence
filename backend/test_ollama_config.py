@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.config import get_settings, Settings
 from app.services.config_service import ConfigService
 from app.services.ai.ollama import get_ollama_provider_from_config
-from app.database.session import async_session_maker, init_db
+from app.database.session import sessionmanager, init_db
 from app.database.models import User, UserRole
 from sqlalchemy import select
 from uuid import uuid4
@@ -45,7 +45,7 @@ async def test_url_validation():
     """Test URL validation in config service."""
     print("\n=== Testing URL Validation ===")
 
-    async with async_session_maker() as db:
+    async with sessionmanager.session() as db:
         service = ConfigService(db)
 
         # Test valid URLs
@@ -99,7 +99,7 @@ async def test_config_update():
     # Initialize database
     await init_db()
 
-    async with async_session_maker() as db:
+    async with sessionmanager.session() as db:
         # Get or create admin user for testing
         stmt = select(User).where(User.username == "admin")
         result = await db.execute(stmt)
@@ -160,7 +160,7 @@ async def test_provider_factory():
     """Test creating OllamaProvider from database config."""
     print("\n=== Testing OllamaProvider Factory ===")
 
-    async with async_session_maker() as db:
+    async with sessionmanager.session() as db:
         service = ConfigService(db)
 
         # Set a test URL in config
@@ -199,7 +199,7 @@ async def test_connection_test():
     """Test the connection test functionality."""
     print("\n=== Testing Connection Test ===")
 
-    async with async_session_maker() as db:
+    async with sessionmanager.session() as db:
         service = ConfigService(db)
 
         # Test with localhost (may or may not be reachable)

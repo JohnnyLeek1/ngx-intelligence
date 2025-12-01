@@ -15,6 +15,7 @@ from app.schemas.common import (
     MessageResponse,
     PaginatedResponse,
     PaginationParams,
+    UTCBaseModel,
 )
 from app.schemas.config import (
     AIModelResponse,
@@ -27,6 +28,12 @@ from app.schemas.config import (
     ConfigValidationResponse,
     PromptResponse,
     PromptUpdateRequest,
+)
+from app.schemas.metrics import (
+    DailyMetricsComparisonResponse,
+    DailyMetricsResponse,
+    MetricsRangeRequest,
+    MetricsRangeResponse,
 )
 from app.schemas.document import (
     DocumentFilterRequest,
@@ -46,6 +53,7 @@ from app.schemas.queue import (
 )
 from app.schemas.user import (
     LoginRequest,
+    PaperlessCredentialsUpdate,
     PaperlessValidationRequest,
     PaperlessValidationResponse,
     TokenRefreshRequest,
@@ -59,6 +67,7 @@ from app.schemas.user import (
 
 __all__ = [
     # Common
+    "UTCBaseModel",
     "HealthCheckResponse",
     "MessageResponse",
     "ErrorResponse",
@@ -70,6 +79,7 @@ __all__ = [
     "UserResponse",
     "UserWithStats",
     "UserPasswordChange",
+    "PaperlessCredentialsUpdate",
     "LoginRequest",
     "TokenResponse",
     "TokenRefreshRequest",
@@ -106,4 +116,9 @@ __all__ = [
     "AITestResponse",
     "PromptResponse",
     "PromptUpdateRequest",
+    # Metrics
+    "DailyMetricsResponse",
+    "DailyMetricsComparisonResponse",
+    "MetricsRangeRequest",
+    "MetricsRangeResponse",
 ]

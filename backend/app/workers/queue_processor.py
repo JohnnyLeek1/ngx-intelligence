@@ -55,10 +55,10 @@ class QueueProcessor:
             logger.info("Initializing AI provider (Ollama) from database config")
 
             # We need a database session to load config
-            from app.database.session import async_session_maker
+            from app.database.session import sessionmanager
             from app.services.ai.ollama import get_ollama_provider_from_config
 
-            async with async_session_maker() as db:
+            async with sessionmanager.session() as db:
                 self.ai_provider = await get_ollama_provider_from_config(db)
 
             # Verify AI provider is healthy

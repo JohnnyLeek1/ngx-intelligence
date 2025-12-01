@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle2, RefreshCw, AlertCircle, Download, Star } from 'lucide-react';
+import { AlertCustom } from '@/components/ui/alert-custom';
+import { CheckCircle2, RefreshCw, Download, Star } from 'lucide-react';
 import { SettingsAlert } from './shared/SettingsAlert';
 import { SaveButton } from './shared/SaveButton';
 import { ModelPullHelpDialog } from './ModelPullHelpDialog';
@@ -184,12 +184,10 @@ export function AISettings() {
 
         {/* Error Alert for Model Fetching */}
         {(modelsError || refreshError) && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="!translate-y-0">
-              {getErrorMessage(refreshError || modelsError)}
-            </AlertDescription>
-          </Alert>
+          <AlertCustom
+            variant="error"
+            message={getErrorMessage(refreshError || modelsError)}
+          />
         )}
 
         <div className="space-y-2">
@@ -307,14 +305,10 @@ export function AISettings() {
           )}
 
           {enhancedModels.length === 0 && !modelsError && !refreshError && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                No models found. Make sure Ollama is running and has models installed.
-                Run <code className="text-xs bg-muted px-1 py-0.5 rounded">ollama pull llama3.2:3b</code> to
-                get started.
-              </AlertDescription>
-            </Alert>
+            <AlertCustom
+              variant="info"
+              message="No models found. Make sure Ollama is running and has models installed. Run 'ollama pull llama3.2:3b' to get started."
+            />
           )}
         </div>
 

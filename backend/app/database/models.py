@@ -115,6 +115,9 @@ class User(Base):
     paperless_url: Mapped[str] = mapped_column(String(255), nullable=False)
     paperless_username: Mapped[str] = mapped_column(String(255), nullable=False)
     paperless_token: Mapped[str] = mapped_column(String(255), nullable=False)
+    timezone: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="UTC"
+    )  # IANA timezone name (e.g., "America/Los_Angeles", "UTC", "Europe/London")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -340,3 +343,30 @@ class Setting(Base):
 
     def __repr__(self) -> str:
         return f"<Setting(key={self.key})>"
+
+
+class DailyMetrics(Base):
+    """Daily aggregated metrics for document processing."""
+
+    __tablename__ = "daily_metrics"
+
+    id: Mapped[UUID] = mapped_column(GUID, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(GUID, ForeignKey("users.id"), nullable=False)
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
+    total_documents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    successful_documents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failed_documents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    avg_confidence_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_processing_time_ms: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship()
+
+    def __repr__(self) -> str:
+        return f"<DailyMetrics(id={self.id}, date={self.date}, user_id={self.user_id})>"

@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.database.models import ApprovalStatus
+from app.schemas.common import UTCBaseModel, UTCDatetime
 
 
 # Request schemas
@@ -26,15 +27,15 @@ class BatchApprovalRequest(BaseModel):
 
 
 # Response schemas
-class ApprovalQueueResponse(BaseModel):
+class ApprovalQueueResponse(UTCBaseModel):
     """Schema for approval queue item responses."""
 
     id: UUID
     document_id: UUID
     user_id: UUID
     suggestions: Dict[str, Any]
-    created_at: datetime
-    approved_at: Optional[datetime]
+    created_at: UTCDatetime
+    approved_at: Optional[UTCDatetime]
     feedback: Optional[str]
     status: ApprovalStatus
 

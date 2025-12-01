@@ -4,8 +4,10 @@ import type {
   TokenResponse,
   UserCreate,
   User,
+  UserUpdate,
   UserPasswordChange,
-  TokenRefreshRequest
+  TokenRefreshRequest,
+  PaperlessCredentialsUpdate
 } from '@/types';
 
 export const authApi = {
@@ -33,9 +35,21 @@ export const authApi = {
     return response.data;
   },
 
+  // Update current user
+  updateUser: async (userData: UserUpdate): Promise<User> => {
+    const response = await apiClient.put<User>('/auth/me', userData);
+    return response.data;
+  },
+
   // Change password
   changePassword: async (passwordData: UserPasswordChange): Promise<{ message: string }> => {
     const response = await apiClient.put<{ message: string }>('/auth/password', passwordData);
+    return response.data;
+  },
+
+  // Update Paperless-ngx credentials
+  updatePaperlessCredentials: async (data: PaperlessCredentialsUpdate): Promise<{ message: string }> => {
+    const response = await apiClient.put<{ message: string }>('/auth/paperless-credentials', data);
     return response.data;
   },
 

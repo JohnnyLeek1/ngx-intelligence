@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.database.models import ProcessingStatus
+from app.schemas.common import UTCBaseModel, UTCDatetime
 
 
 # Base schemas
@@ -55,13 +56,13 @@ class ProcessingResult(BaseModel):
 
 
 # Response schemas
-class ProcessedDocumentResponse(BaseModel):
+class ProcessedDocumentResponse(UTCBaseModel):
     """Schema for processed document responses."""
 
     id: UUID
     user_id: UUID
     paperless_document_id: int
-    processed_at: datetime
+    processed_at: UTCDatetime
     status: ProcessingStatus
     confidence_score: Optional[float]
     original_data: Optional[Dict[str, Any]]

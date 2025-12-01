@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -9,7 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { HelpCircle, Terminal, ExternalLink, Star, AlertCircle } from 'lucide-react';
+import { HelpCircle, Terminal, ExternalLink, Star, AlertCircle, Copy, Check } from 'lucide-react';
 
 interface RecommendedModel {
   readonly name: string;
@@ -22,6 +23,14 @@ interface ModelPullHelpDialogProps {
 }
 
 export function ModelPullHelpDialog({ recommendedModels }: ModelPullHelpDialogProps) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -90,11 +99,19 @@ export function ModelPullHelpDialog({ recommendedModels }: ModelPullHelpDialogPr
                       variant="ghost"
                       size="sm"
                       className="h-6 px-2 text-xs"
-                      onClick={() => {
-                        navigator.clipboard.writeText(`ollama pull ${model.name}`);
-                      }}
+                      onClick={() => handleCopy(`ollama pull ${model.name}`, model.name)}
                     >
-                      Copy
+                      {copiedId === model.name ? (
+                        <>
+                          <Check className="h-3 w-3 mr-1" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3 mr-1" />
+                          Copy
+                        </>
+                      )}
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground pl-3">

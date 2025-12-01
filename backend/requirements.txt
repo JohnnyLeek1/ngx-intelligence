@@ -27,6 +27,7 @@ pyyaml==6.0.1
 
 # Utilities
 python-dateutil==2.8.2
+pytz==2024.1  # Timezone support for per-user daily metrics
 
 # Async task scheduling (for future batch processing)
 apscheduler==3.10.4

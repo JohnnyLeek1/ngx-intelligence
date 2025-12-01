@@ -21,11 +21,13 @@ from app.dependencies import get_current_user
 from app.repositories import UserRepository
 from app.schemas import (
     LoginRequest,
+    PaperlessCredentialsUpdate,
     TokenRefreshRequest,
     TokenResponse,
     UserCreate,
     UserPasswordChange,
     UserResponse,
+    UserUpdate,
 )
 from app.services.paperless import get_paperless_client
 
@@ -186,6 +188,47 @@ async def get_current_user_info(
     return current_user
 
 
+@router.put("/me", response_model=UserResponse)
+async def update_current_user(
+    user_data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Update current user information.
+
+    Allows updating email, timezone, and other user preferences.
+    Does not update password (use /auth/password endpoint instead).
+    Does not update Paperless credentials (use /auth/paperless-credentials endpoint instead).
+    """
+    user_repo = UserRepository(db)
+
+    # Update only the fields that are provided
+    if user_data.email is not None:
+        # Check if email is already in use by another user
+        if user_data.email != current_user.email:
+            existing_user = await user_repo.get_by_email(user_data.email)
+            if existing_user and existing_user.id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already in use",
+                )
+        current_user.email = user_data.email
+
+    if user_data.timezone is not None:
+        current_user.timezone = user_data.timezone
+
+    if user_data.is_active is not None:
+        current_user.is_active = user_data.is_active
+
+    # Update user in database
+    updated_user = await user_repo.update(current_user)
+
+    logger.info(f"User updated: {current_user.username}")
+
+    return updated_user
+
+
 @router.put("/password")
 async def change_password(
     password_data: UserPasswordChange,
@@ -211,6 +254,72 @@ async def change_password(
     logger.info(f"Password changed for user: {current_user.username}")
 
     return {"message": "Password updated successfully"}
+
+
+@router.put("/paperless-credentials")
+async def update_paperless_credentials(
+    credentials: PaperlessCredentialsUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Update Paperless-ngx credentials for the current user.
+
+    Validates the new credentials before updating them in the database.
+
+    Security: If the username has changed, a new token must be provided.
+    If the username is the same, an empty token will use the existing token.
+    """
+    # Security check: If username changed, require a new token
+    username_changed = credentials.paperless_username != current_user.paperless_username
+    if username_changed and not credentials.paperless_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Authentication token is required when changing the username",
+        )
+
+    # Determine which token to use for validation
+    token_to_use = credentials.paperless_token if credentials.paperless_token else current_user.paperless_token
+
+    # Validate new Paperless credentials
+    try:
+        paperless_client = await get_paperless_client(
+            base_url=credentials.paperless_url,
+            auth_token=token_to_use,
+        )
+        is_valid = await paperless_client.health_check()
+
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid Paperless credentials or URL",
+            )
+
+        await paperless_client.close()
+
+    except HTTPException:
+        # Re-raise HTTP exceptions from validation
+        raise
+    except Exception as e:
+        logger.error(f"Paperless validation failed for user {current_user.username}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not validate Paperless credentials",
+        )
+
+    # Update user's Paperless credentials
+    current_user.paperless_url = credentials.paperless_url
+    current_user.paperless_username = credentials.paperless_username
+    # Only update token if a new one was provided
+    if credentials.paperless_token:
+        current_user.paperless_token = credentials.paperless_token
+
+    user_repo = UserRepository(db)
+    await user_repo.update(current_user)
+
+    logger.info(f"Paperless credentials updated for user: {current_user.username}")
+
+    return {"message": "Paperless credentials updated successfully"}
 
 
 @router.post("/logout")

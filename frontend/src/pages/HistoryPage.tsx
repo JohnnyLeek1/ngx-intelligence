@@ -8,8 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Search, RefreshCw, Eye } from 'lucide-react';
-import { format } from 'date-fns';
-import { formatProcessingTime } from '@/lib/utils';
+import { formatProcessingTime, formatDateTime } from '@/lib/utils';
 import type { ProcessingStatus, DocumentFilterRequest, ProcessedDocument } from '@/types';
 
 function StatusBadge({ status }: { status: ProcessingStatus }) {
@@ -150,7 +149,7 @@ export default function HistoryPage() {
                         #{doc.paperless_document_id}
                       </TableCell>
                       <TableCell>
-                        {format(new Date(doc.processed_at), 'MMM dd, yyyy HH:mm')}
+                        {formatDateTime(doc.processed_at)}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={doc.status} />
@@ -229,7 +228,7 @@ export default function HistoryPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Processed Date</p>
-                  <p className="mt-1">{format(new Date(selectedDoc.processed_at), 'MMM dd, yyyy HH:mm:ss')}</p>
+                  <p className="mt-1">{formatDateTime(selectedDoc.processed_at, 'MMM dd, yyyy HH:mm:ss')}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Confidence Score</p>

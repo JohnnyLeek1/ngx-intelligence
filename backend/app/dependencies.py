@@ -17,6 +17,7 @@ from app.database.models import User
 from app.database.session import get_db
 from app.repositories import (
     ApprovalRepository,
+    DailyMetricsRepository,
     DocumentRepository,
     QueueRepository,
     UserRepository,
@@ -153,6 +154,13 @@ async def get_approval_repository(
 ) -> ApprovalRepository:
     """Get approval repository instance."""
     return ApprovalRepository(db)
+
+
+async def get_metrics_repository(
+    db: AsyncSession = Depends(get_db),
+) -> DailyMetricsRepository:
+    """Get daily metrics repository instance."""
+    return DailyMetricsRepository(db)
 
 
 # Services

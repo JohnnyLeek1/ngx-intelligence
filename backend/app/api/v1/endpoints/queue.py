@@ -53,6 +53,43 @@ async def resume_queue(
     return {"message": "Queue resume not yet implemented"}
 
 
+@router.delete("/completed")
+async def clear_completed_and_failed(
+    current_user: User = Depends(get_current_user),
+    queue_repo: QueueRepository = Depends(get_queue_repository),
+) -> dict:
+    """
+    Manually clear all completed and failed queue items.
+
+    This is useful for resetting queue statistics and starting fresh.
+    """
+    try:
+        result = await queue_repo.clear_completed_and_failed(user_id=current_user.id)
+
+        if result["total"] == 0:
+            return {
+                "message": "No completed or failed items to clear",
+                "cleared": result
+            }
+
+        logger.info(
+            f"Cleared {result['total']} queue items for user {current_user.username} "
+            f"({result['completed']} completed, {result['failed']} failed)"
+        )
+
+        return {
+            "message": f"Successfully cleared {result['completed']} completed and {result['failed']} failed items",
+            "cleared": result
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to clear queue items: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clear queue items: {str(e)}"
+        )
+
+
 @router.post("/process-now")
 async def process_now(
     request: ProcessNowRequest,
@@ -63,11 +100,9 @@ async def process_now(
     Manually trigger processing of documents from Paperless.
 
     Fetches recent unprocessed documents from Paperless and queues them for AI processing.
+    Automatically resets queue stats if the queue is empty.
     """
     from app.services.paperless import get_paperless_client
-    from app.database.models import ProcessingQueue, QueueStatus, ProcessedDocument
-    from sqlalchemy import select
-    from datetime import datetime, timezone
 
     try:
         # Get Paperless client for user
@@ -82,19 +117,23 @@ async def process_now(
 
         documents = response.get("results", [])
         if not documents:
+            await paperless.close()
             return {
                 "message": "No documents found in Paperless",
                 "queued": 0,
-                "total_found": 0
+                "total_found": 0,
+                "already_processed": 0,
+                "already_queued": 0,
+                "queue_was_reset": False
             }
 
-        # Check which documents are already processed
+        # Get repositories
         doc_repo = DocumentRepository(db)
         queue_repo = QueueRepository(db)
 
-        queued_count = 0
+        # Filter out already processed documents
+        pending_doc_ids = []
         already_processed = 0
-        already_queued = 0
 
         for doc in documents:
             paperless_id = doc.get("id")
@@ -109,41 +148,53 @@ async def process_now(
                 already_processed += 1
                 continue
 
-            # Check if already in queue
-            stmt = select(ProcessingQueue).where(
-                ProcessingQueue.user_id == current_user.id,
-                ProcessingQueue.paperless_document_id == paperless_id,
-                ProcessingQueue.status.in_([QueueStatus.QUEUED, QueueStatus.PROCESSING])
-            )
-            result = await db.execute(stmt)
-            existing_queue = result.scalar_one_or_none()
+            pending_doc_ids.append(paperless_id)
 
-            if existing_queue:
-                already_queued += 1
-                continue
-
-            # Add to processing queue
-            queue_item = ProcessingQueue(
-                user_id=current_user.id,
-                paperless_document_id=paperless_id,
-                status=QueueStatus.QUEUED,
-                priority=0,
-                retry_count=0,
-            )
-            db.add(queue_item)
-            queued_count += 1
-
-        await db.commit()
         await paperless.close()
 
-        logger.info(f"Queued {queued_count} documents for processing (user: {current_user.username})")
+        # If no pending documents found, don't reset the queue
+        if not pending_doc_ids:
+            logger.info(f"No pending documents to queue for user {current_user.username}")
+            return {
+                "message": "No pending documents found. All documents have already been processed.",
+                "queued": 0,
+                "total_found": len(documents),
+                "already_processed": already_processed,
+                "already_queued": 0,
+                "queue_was_reset": False
+            }
+
+        # Add documents to queue with automatic reset logic
+        result = await queue_repo.add_documents_to_queue_with_reset(
+            user_id=current_user.id,
+            paperless_document_ids=pending_doc_ids,
+            priority=0
+        )
+
+        logger.info(
+            f"Queued {result['added']} documents for processing (user: {current_user.username}). "
+            f"Queue was reset: {result['queue_was_reset']}"
+        )
+
+        # Build response message
+        if result["added"] == 0:
+            message = "No new documents queued. All pending documents are already in the queue."
+        elif result["queue_was_reset"]:
+            message = (
+                f"Queue was reset (cleared {result['cleared']['total']} old items). "
+                f"Successfully queued {result['added']} new documents for processing."
+            )
+        else:
+            message = f"Successfully queued {result['added']} documents for processing."
 
         return {
-            "message": f"Successfully queued {queued_count} documents for processing",
-            "queued": queued_count,
+            "message": message,
+            "queued": result["added"],
             "total_found": len(documents),
             "already_processed": already_processed,
-            "already_queued": already_queued,
+            "already_queued": result["already_queued"],
+            "queue_was_reset": result["queue_was_reset"],
+            "cleared": result["cleared"] if result["queue_was_reset"] else None
         }
 
     except Exception as e:
