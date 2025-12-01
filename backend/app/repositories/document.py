@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import ProcessedDocument, ProcessingStatus
@@ -169,6 +169,72 @@ class DocumentRepository(SQLAlchemyRepository[ProcessedDocument]):
                 processing_time_ms=processing_time_ms,
             )
             return await self.create(document)
+
+    async def filter_documents(
+        self,
+        user_id: UUID,
+        status: Optional[ProcessingStatus] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        min_confidence: Optional[float] = None,
+        search: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[ProcessedDocument]:
+        """
+        Filter documents with multiple criteria.
+
+        Args:
+            user_id: User UUID
+            status: Optional status filter
+            start_date: Optional start date filter
+            end_date: Optional end date filter
+            min_confidence: Optional minimum confidence score
+            search: Optional search term for title (case-insensitive partial match)
+            limit: Maximum results
+            offset: Results offset
+
+        Returns:
+            List of filtered documents
+        """
+        query = select(ProcessedDocument).where(ProcessedDocument.user_id == user_id)
+
+        # Apply status filter
+        if status:
+            query = query.where(ProcessedDocument.status == status)
+
+        # Apply date range filters
+        if start_date:
+            query = query.where(ProcessedDocument.processed_at >= start_date)
+        if end_date:
+            query = query.where(ProcessedDocument.processed_at <= end_date)
+
+        # Apply confidence filter
+        if min_confidence is not None:
+            query = query.where(ProcessedDocument.confidence_score >= min_confidence)
+
+        # Apply search filter on suggested_data title
+        if search:
+            # Search within the suggested_data JSON field for the title
+            # Use json_extract for SQLite compatibility
+            search_term = f"%{search.lower()}%"
+            query = query.where(
+                func.lower(
+                    func.json_extract(
+                        ProcessedDocument.suggested_data,
+                        '$.title'
+                    )
+                ).like(search_term)
+            )
+
+        # Apply ordering (most recent first)
+        query = query.order_by(ProcessedDocument.processed_at.desc())
+
+        # Apply pagination
+        query = query.offset(offset).limit(limit)
+
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
 
     async def get_processing_stats(self, user_id: UUID) -> dict:
         """

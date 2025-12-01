@@ -112,6 +112,7 @@ export interface DocumentFilterRequest {
   start_date?: string;
   end_date?: string;
   min_confidence?: number;
+  search?: string;
   limit?: number;
   offset?: number;
 }

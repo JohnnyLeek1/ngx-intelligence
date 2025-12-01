@@ -11,15 +11,11 @@ import type {
 export const documentsApi = {
   // Get processed documents with filters
   list: async (filters?: DocumentFilterRequest): Promise<{ documents: ProcessedDocument[]; total: number }> => {
-    const response = await apiClient.get<ProcessedDocument[]>(
-      '/documents',
-      { params: filters }
+    const response = await apiClient.post<{ documents: ProcessedDocument[]; total: number }>(
+      '/documents/filter',
+      filters || { limit: 100, offset: 0 }
     );
-    // Backend returns array directly, wrap it for consistency
-    return {
-      documents: response.data,
-      total: response.data.length
-    };
+    return response.data;
   },
 
   // Get single document details

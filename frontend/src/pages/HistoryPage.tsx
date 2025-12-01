@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDocuments } from '@/hooks/useDocuments';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +33,22 @@ export default function HistoryPage() {
   const [selectedDoc, setSelectedDoc] = useState<ProcessedDocument | null>(null);
 
   const { data, isLoading, refetch } = useDocuments(filters);
+
+  // Debounce search term to avoid too many API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm) {
+        setFilters(prev => ({ ...prev, search: searchTerm, offset: 0 }));
+      } else {
+        setFilters(prev => {
+          const { search, ...rest } = prev;
+          return rest;
+        });
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const handleRefresh = () => {
     refetch();
@@ -69,7 +85,7 @@ export default function HistoryPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by document ID..."
+                  placeholder="Search by title..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9"
@@ -130,25 +146,27 @@ export default function HistoryPage() {
               <p className="text-muted-foreground">No documents found</p>
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Document ID</TableHead>
-                    <TableHead>Processed Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Confidence</TableHead>
-                    <TableHead>Processing Time</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="min-w-[200px] max-w-[400px]">Title</TableHead>
+                    <TableHead className="w-[180px]">Processed Date</TableHead>
+                    <TableHead className="w-[100px]">Status</TableHead>
+                    <TableHead className="w-[100px]">Confidence</TableHead>
+                    <TableHead className="w-[120px]">Processing Time</TableHead>
+                    <TableHead className="w-[120px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data.documents.map((doc) => (
                     <TableRow key={doc.id}>
-                      <TableCell className="font-medium">
-                        #{doc.paperless_document_id}
+                      <TableCell className="max-w-[400px]">
+                        <div className="truncate" title={doc.suggested_data?.title || 'Untitled'}>
+                          {doc.suggested_data?.title || 'Untitled'}
+                        </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {formatDateTime(doc.processed_at)}
                       </TableCell>
                       <TableCell>
@@ -159,7 +177,7 @@ export default function HistoryPage() {
                           ? `${Math.round(doc.confidence_score * 100)}%`
                           : '-'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {formatProcessingTime(doc.processing_time_ms)}
                       </TableCell>
                       <TableCell className="text-right">
@@ -212,9 +230,9 @@ export default function HistoryPage() {
       <Dialog open={!!selectedDoc} onOpenChange={(open) => !open && setSelectedDoc(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Document Details</DialogTitle>
+            <DialogTitle>{selectedDoc?.suggested_data?.title || 'Document Details'}</DialogTitle>
             <DialogDescription>
-              Document #{selectedDoc?.paperless_document_id}
+              Paperless Document ID: #{selectedDoc?.paperless_document_id}
             </DialogDescription>
           </DialogHeader>
           {selectedDoc && (

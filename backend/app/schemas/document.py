@@ -34,6 +34,9 @@ class DocumentFilterRequest(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     min_confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
+    search: Optional[str] = Field(
+        None, description="Search documents by title (partial match, case-insensitive)"
+    )
     limit: int = Field(default=100, ge=1, le=1000)
     offset: int = Field(default=0, ge=0)
 
